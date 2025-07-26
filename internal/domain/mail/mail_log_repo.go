@@ -1,35 +1,35 @@
-package repository
+package mail
 
 import (
-	"github.com/ARTMUC/magic-video/internal/domain"
+	"github.com/ARTMUC/magic-video/internal/domain/base"
 	"gorm.io/gorm"
 )
 
 type MailLogRepository interface {
-	BaseRepository[domain.MailLog]
+	base.BaseRepository[MailLog]
 }
 
 type mailLogRepo struct {
-	*BaseRepo[domain.MailLog]
+	*base.BaseRepo[MailLog]
 
 	db *gorm.DB
 }
 
 func NewMailLogRepo(db *gorm.DB) MailLogRepository {
-	return &mailLogRepo{NewBaseRepository[domain.MailLog](db), db}
+	return &mailLogRepo{base.NewBaseRepository[MailLog](db), db}
 }
 
 type MailLogScopes struct {
-	BaseScopes
+	base.BaseScopes
 }
 
-func (u MailLogScopes) WithEmail(email string) Scope {
+func (u MailLogScopes) WithEmail(email string) base.Scope {
 	return func(db *gorm.DB) *gorm.DB {
 		return db.Where("mail_logs.email = ?", email)
 	}
 }
 
-func (u MailLogScopes) WithTemplate(template string) Scope {
+func (u MailLogScopes) WithTemplate(template string) base.Scope {
 	return func(db *gorm.DB) *gorm.DB {
 		return db.Where("mail_logs.template = ?", template)
 	}

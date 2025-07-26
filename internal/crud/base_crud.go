@@ -1,9 +1,9 @@
-package service
+package crud
 
 import (
 	"errors"
 
-	"github.com/ARTMUC/magic-video/internal/repository"
+	"github.com/ARTMUC/magic-video/internal/domain/base"
 	"github.com/google/uuid"
 	"github.com/jinzhu/copier"
 )
@@ -11,31 +11,31 @@ import (
 var ErrRecordNotFound = errors.New("record not found")
 
 type BaseCrud[T any] interface {
-	Create(*T, repository.WriteOptions) error
-	List(repository.ReadOptions, repository.Pagination) (*repository.PaginatedResult[T], error)
-	Get(uuid.UUID, repository.ReadOptions) (*T, error)
-	Update(uuid.UUID, *T, repository.WriteOptions) error
-	Delete(uuid.UUID, repository.WriteOptions) error
+	Create(*T, base.WriteOptions) error
+	List(base.ReadOptions, base.Pagination) (*base.PaginatedResult[T], error)
+	Get(uuid.UUID, base.ReadOptions) (*T, error)
+	Update(uuid.UUID, *T, base.WriteOptions) error
+	Delete(uuid.UUID, base.WriteOptions) error
 }
 
-type baseCrud[T any, R repository.BaseRepository[T]] struct {
+type baseCrud[T any, R base.BaseRepository[T]] struct {
 	repository R
 }
 
-func newBaseCrud[T any, R repository.BaseRepository[T]](repository R) BaseCrud[T] {
+func newBaseCrud[T any, R base.BaseRepository[T]](repository R) BaseCrud[T] {
 	return &baseCrud[T, R]{repository: repository}
 }
 
-func (b *baseCrud[T, R]) Update(UUID uuid.UUID, input *T, options repository.WriteOptions) error {
+func (b *baseCrud[T, R]) Update(UUID uuid.UUID, input *T, options base.WriteOptions) error {
 	entity, err := b.repository.FindOne(
-		repository.ReadOptions{
-			Scopes: []repository.Scope{
-				repository.WithUUID(UUID),
+		base.ReadOptions{
+			Scopes: []base.Scope{
+				base.WithUUID(UUID),
 			},
 		},
 	)
 	if err != nil {
-		if errors.Is(err, repository.ErrRecordNotFound) {
+		if errors.Is(err, base.ErrRecordNotFound) {
 			return ErrRecordNotFound
 		}
 		return err
@@ -54,7 +54,7 @@ func (b *baseCrud[T, R]) Update(UUID uuid.UUID, input *T, options repository.Wri
 	return nil
 }
 
-func (b *baseCrud[T, R]) Create(entity *T, options repository.WriteOptions) error {
+func (b *baseCrud[T, R]) Create(entity *T, options base.WriteOptions) error {
 	err := b.repository.Create(options, entity)
 	if err != nil {
 		return err
@@ -63,16 +63,16 @@ func (b *baseCrud[T, R]) Create(entity *T, options repository.WriteOptions) erro
 	return nil
 }
 
-func (b *baseCrud[T, R]) Delete(UUID uuid.UUID, options repository.WriteOptions) error {
+func (b *baseCrud[T, R]) Delete(UUID uuid.UUID, options base.WriteOptions) error {
 	entity, err := b.repository.FindOne(
-		repository.ReadOptions{
-			Scopes: []repository.Scope{
-				repository.WithUUID(UUID),
+		base.ReadOptions{
+			Scopes: []base.Scope{
+				base.WithUUID(UUID),
 			},
 		},
 	)
 	if err != nil {
-		if errors.Is(err, repository.ErrRecordNotFound) {
+		if errors.Is(err, base.ErrRecordNotFound) {
 			return ErrRecordNotFound
 		}
 		return err
@@ -86,11 +86,11 @@ func (b *baseCrud[T, R]) Delete(UUID uuid.UUID, options repository.WriteOptions)
 	return nil
 }
 
-func (b *baseCrud[T, R]) Get(UUID uuid.UUID, options repository.ReadOptions) (*T, error) {
-	options.Scopes = append(options.Scopes, repository.WithUUID(UUID))
+func (b *baseCrud[T, R]) Get(UUID uuid.UUID, options base.ReadOptions) (*T, error) {
+	options.Scopes = append(options.Scopes, base.WithUUID(UUID))
 	entity, err := b.repository.FindOne(options)
 	if err != nil {
-		if errors.Is(err, repository.ErrRecordNotFound) {
+		if errors.Is(err, base.ErrRecordNotFound) {
 			return nil, ErrRecordNotFound
 		}
 		return nil, err
@@ -99,6 +99,6 @@ func (b *baseCrud[T, R]) Get(UUID uuid.UUID, options repository.ReadOptions) (*T
 	return entity, nil
 }
 
-func (b *baseCrud[T, R]) List(options repository.ReadOptions, pagination repository.Pagination) (*repository.PaginatedResult[T], error) {
+func (b *baseCrud[T, R]) List(options base.ReadOptions, pagination base.Pagination) (*base.PaginatedResult[T], error) {
 	return b.repository.Paginate(options, pagination)
 }

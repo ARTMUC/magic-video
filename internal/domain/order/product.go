@@ -1,18 +1,20 @@
-package domain
+package order
 
 import (
 	"fmt"
 
+	"github.com/ARTMUC/magic-video/internal/domain/base"
+	"github.com/google/uuid"
 	"github.com/shopspring/decimal"
 	"gorm.io/gorm"
 )
 
 type Product struct {
-	BaseModel
+	base.BaseModel
 
-	ProductTypeID uint
+	ProductTypeID uuid.UUID
 	ProductType   *ProductType `gorm:"constraint:OnUpdate:CASCADE,OnDelete:RESTRICT"`
-	
+
 	Name      string          `gorm:"type:varchar(100)"`
 	UnitPrice decimal.Decimal `gorm:"type:decimal(10,2);type:TEXT"`
 	TaxRate   decimal.Decimal `gorm:"type:decimal(5,2);type:TEXT"`

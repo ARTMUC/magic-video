@@ -1,4 +1,9 @@
-package domain
+package composition
+
+import (
+	"github.com/ARTMUC/magic-video/internal/domain/base"
+	"github.com/google/uuid"
+)
 
 const (
 	VideoCompositionStatusCompleted  = "completed"
@@ -9,11 +14,10 @@ const (
 )
 
 type VideoComposition struct {
-	BaseModel
+	base.BaseModel
 
-	CustomerID    uint
-	Customer      *Customer `gorm:"constraint:OnUpdate:CASCADE,OnDelete:SET NULL;"`
-	VideoTemplate string    `gorm:"type:varchar(255)"` // for example: superhero, pirates, santaclaus ...
-	Status        string    `gorm:"type:varchar(255)"`
+	CustomerID    uuid.UUID
+	VideoTemplate string
+	Status        string
 	Images        []Image
 }

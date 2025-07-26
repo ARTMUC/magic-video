@@ -1,7 +1,9 @@
-package domain
+package mail
+
+import "github.com/ARTMUC/magic-video/internal/domain/base"
 
 type MailLog struct {
-	BaseModel
+	base.BaseModel
 
 	RecipientName  string `gorm:"type:varchar(255)"`
 	RecipientEmail string `gorm:"type:varchar(255)"`

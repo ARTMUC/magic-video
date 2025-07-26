@@ -1,4 +1,4 @@
-package customer_auth
+package order
 
 import (
 	"net/http"
@@ -7,51 +7,37 @@ import (
 	"github.com/danielgtaylor/huma/v2"
 )
 
-func RegisterRoutes(api huma.API, c *CustomerAuthController) {
+func RegisterRoutes(api huma.API, c *OrderController) {
 	huma.Register(api,
 		huma.Operation{
 			Method:        http.MethodPost,
-			Path:          "/customers/access",
+			Path:          "/payments/p24/notification",
 			DefaultStatus: 201,
 			Middlewares:   huma.Middlewares{},
-
-			Tags:        []string{"CustomersAuth"},
-			Summary:     "Create an access for customer",
-			Description: "Create an access for customer and sends an access email address to the customer.",
-			OperationID: "createCustomerAccess",
+			Tags:          []string{"Order"},
+			Summary:       "Processes payment notification",
+			Description:   "Processes payment notification",
+			OperationID:   "processWebhook",
+			Security:      []map[string][]string{},
 		},
-		c.CreateAccess,
+		c.ProcessWebhook,
 	)
 	huma.Register(api,
 		huma.Operation{
 			Method:        http.MethodPost,
-			Path:          "/customers/session",
+			Path:          "/orders",
 			DefaultStatus: 201,
-			Middlewares:   huma.Middlewares{},
-
-			Tags:        []string{"CustomersAuth"},
-			Summary:     "Creates session for customer",
-			Description: "Create session for customer.",
-			OperationID: "createCustomerSession",
-		},
-		c.Signin,
-	)
-	huma.Register(api,
-		huma.Operation{
-			Method:        http.MethodGet,
-			Path:          "/customers/session",
-			DefaultStatus: 200,
 			Middlewares: huma.Middlewares{
-				middleware.Auth(api, c.sessionService.ParseToken),
+				middleware.Auth(api, c.sessionService.ParseCustomerToken),
 			},
-			Tags:        []string{"CustomersAuth"},
-			Summary:     "Returns customer",
-			Description: "Returns customer.",
-			OperationID: "getCustomerSession",
+			Tags:        []string{"Order"},
+			Summary:     "Creates order.",
+			Description: "Creates order.",
+			OperationID: "createOrder",
 			Security: []map[string][]string{
 				{"BearerAuth": {}},
 			},
 		},
-		c.GetCustomer,
+		c.CreateOrder,
 	)
 }

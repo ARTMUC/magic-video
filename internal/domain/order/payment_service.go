@@ -1,4 +1,4 @@
-package service
+package order
 
 import (
 	"errors"
@@ -7,9 +7,9 @@ import (
 	"time"
 
 	"github.com/ARTMUC/magic-video/internal/config"
-	"github.com/ARTMUC/magic-video/internal/domain"
+	"github.com/ARTMUC/magic-video/internal/domain/base"
+	"github.com/ARTMUC/magic-video/internal/domain/customer"
 	"github.com/ARTMUC/magic-video/internal/pkg/p24"
-	"github.com/ARTMUC/magic-video/internal/repository"
 )
 
 var (
@@ -18,24 +18,24 @@ var (
 )
 
 type PaymentService interface {
-	CreateTransaction(order *domain.Order, customer *domain.Customer) (*domain.OrderTransaction, error)
-	ProcessWebhook(r *http.Request) (*domain.Order, error)
+	CreateTransaction(order *Order, customer *customer.Customer) (*OrderTransaction, error)
+	ProcessWebhook(r *http.Request) (*Order, error)
 }
 
 type paymentService struct {
 	paymentConfig              config.Przelewy24ClientConfig
-	transactionProvider        repository.TransactionProvider
-	orderTransactionRepository repository.OrderTransactionRepository
-	orderPaymentRepository     repository.OrderPaymentRepository
-	orderRepository            repository.OrderRepository
+	transactionProvider        base.TransactionProvider
+	orderTransactionRepository OrderTransactionRepository
+	orderPaymentRepository     OrderPaymentRepository
+	orderRepository            OrderRepository
 }
 
 func NewPaymentService(
 	paymentConfig config.Przelewy24ClientConfig,
-	transactionProvider repository.TransactionProvider,
-	orderTransactionRepository repository.OrderTransactionRepository,
-	orderPaymentRepository repository.OrderPaymentRepository,
-	orderRepository repository.OrderRepository,
+	transactionProvider base.TransactionProvider,
+	orderTransactionRepository OrderTransactionRepository,
+	orderPaymentRepository OrderPaymentRepository,
+	orderRepository OrderRepository,
 ) PaymentService {
 	return &paymentService{
 		paymentConfig:              paymentConfig,
@@ -57,11 +57,11 @@ func (s *paymentService) getClient() *p24.Client {
 }
 
 func (s *paymentService) CreateTransaction(
-	order *domain.Order,
-	customer *domain.Customer,
-) (*domain.OrderTransaction, error) {
+	order *Order,
+	customer *customer.Customer,
+) (*OrderTransaction, error) {
 	client := s.getClient()
-	sessionID := fmt.Sprintf("order_%d_%d", order.UUID, time.Now().Nanosecond())
+	sessionID := fmt.Sprintf("order_%d_%d", order.ID, time.Now().Nanosecond())
 	transaction := p24.NewTransactionBuilder().
 		SetSessionID(sessionID).
 		SetAmountDecimal(order.GrossAmount).
@@ -75,9 +75,9 @@ func (s *paymentService) CreateTransaction(
 		return nil, fmt.Errorf("failed to register transaction: %w", err)
 	}
 
-	var orderTransaction *domain.OrderTransaction
-	err = s.transactionProvider.Transaction(func(tx *repository.Tx) error {
-		orderTransaction = &domain.OrderTransaction{
+	var orderTransaction *OrderTransaction
+	err = s.transactionProvider.Transaction(func(tx *base.Tx) error {
+		orderTransaction = &OrderTransaction{
 			Amount:      transaction.Amount,
 			Method:      "online",
 			SessionIden: sessionID,
@@ -86,13 +86,13 @@ func (s *paymentService) CreateTransaction(
 			OrderID:     order.ID,
 		}
 
-		err = s.orderTransactionRepository.Create(repository.WriteOptions{Tx: tx}, orderTransaction)
+		err = s.orderTransactionRepository.Create(base.WriteOptions{Tx: tx}, orderTransaction)
 		if err != nil {
 			return fmt.Errorf("failed to create order transaction in db: %w", err)
 		}
 
-		order.PaymentStatus = domain.OrderPaymentStatusPending
-		err = s.orderRepository.Update(repository.WriteOptions{Tx: tx}, order)
+		order.PaymentStatus = OrderPaymentStatusPending
+		err = s.orderRepository.Update(base.WriteOptions{Tx: tx}, order)
 		if err != nil {
 			return fmt.Errorf("failed to update order in db: %w", err)
 		}
@@ -106,7 +106,7 @@ func (s *paymentService) CreateTransaction(
 	return orderTransaction, nil
 }
 
-func (s *paymentService) ProcessWebhook(r *http.Request) (*domain.Order, error) {
+func (s *paymentService) ProcessWebhook(r *http.Request) (*Order, error) {
 	client := s.getClient()
 	data, err := p24.ParseWebhookData(r)
 	if err != nil {
@@ -118,41 +118,41 @@ func (s *paymentService) ProcessWebhook(r *http.Request) (*domain.Order, error) 
 		return nil, fmt.Errorf("invalid signature")
 	}
 
-	orderTransaction, err := s.orderTransactionRepository.FindOne(repository.ReadOptions{
-		Scopes: []repository.Scope{repository.OrderTransactionScopes{}.WithSessionID(data.SessionId)},
+	orderTransaction, err := s.orderTransactionRepository.FindOne(base.ReadOptions{
+		Scopes: []base.Scope{OrderTransactionScopes{}.WithSessionID(data.SessionId)},
 	})
 	if err != nil {
-		if errors.Is(err, repository.ErrRecordNotFound) {
+		if errors.Is(err, base.ErrRecordNotFound) {
 			return nil, ErrPaymentServiceOrderTransactionNotFound
 		}
 		return nil, fmt.Errorf("can't find order transaction in db: %w", err)
 	}
-	order, err := s.orderRepository.FindOne(repository.ReadOptions{
-		Scopes: []repository.Scope{repository.OrderScopes{}.WithID(orderTransaction.OrderID)},
+	order, err := s.orderRepository.FindOne(base.ReadOptions{
+		Scopes: []base.Scope{OrderScopes{}.WithID(orderTransaction.OrderID)},
 	})
 	if err != nil {
-		if errors.Is(err, repository.ErrRecordNotFound) {
+		if errors.Is(err, base.ErrRecordNotFound) {
 			return nil, ErrPaymentServiceOrderNotFound
 		}
 		return nil, fmt.Errorf("can't find order in db: %w", err)
 	}
 
-	var orderPayment *domain.OrderPayment
-	err = s.transactionProvider.Transaction(func(tx *repository.Tx) error {
-		orderPayment = &domain.OrderPayment{
-			BaseModel:          domain.BaseModel{},
+	var orderPayment *OrderPayment
+	err = s.transactionProvider.Transaction(func(tx *base.Tx) error {
+		orderPayment = &OrderPayment{
+			BaseModel:          base.BaseModel{},
 			OrderTransactionID: orderTransaction.ID,
 			OrderID:            order.ID,
 			SessionID:          data.SessionId,
 		}
 
-		err = s.orderPaymentRepository.Create(repository.WriteOptions{Tx: tx}, orderPayment)
+		err = s.orderPaymentRepository.Create(base.WriteOptions{Tx: tx}, orderPayment)
 		if err != nil {
 			return fmt.Errorf("failed to create order payment in db: %w", err)
 		}
 
-		order.PaymentStatus = domain.OrderPaymentStatusCompleted
-		err = s.orderRepository.Update(repository.WriteOptions{Tx: tx}, order)
+		order.PaymentStatus = OrderPaymentStatusCompleted
+		err = s.orderRepository.Update(base.WriteOptions{Tx: tx}, order)
 		if err != nil {
 			return fmt.Errorf("failed to update order in db: %w", err)
 		}

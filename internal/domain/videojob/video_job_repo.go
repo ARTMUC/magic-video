@@ -1,4 +1,4 @@
-package composition
+package job
 
 import (
 	"github.com/ARTMUC/magic-video/internal/domain/base"
@@ -28,9 +28,3 @@ func (s VideoCompositionJobScopes) WithStatus(status string) base.Scope {
 		return db.Where("status = ?", status)
 	}
 }
-
-const (
-	VideoCompositionJobPreloadVideoComposition       = "VideoComposition"
-	VideoCompositionJobPreloadVideoCompositionImages = "VideoComposition.Images"
-	VideoCompositionJobPreloadOrderLine              = "OrderLine"
-)

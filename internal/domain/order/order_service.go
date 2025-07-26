@@ -1,11 +1,12 @@
-package service
+package order
 
 import (
 	"errors"
 	"fmt"
 
-	"github.com/ARTMUC/magic-video/internal/domain"
-	"github.com/ARTMUC/magic-video/internal/repository"
+	"github.com/ARTMUC/magic-video/internal/domain/base"
+	"github.com/ARTMUC/magic-video/internal/domain/composition"
+	"github.com/ARTMUC/magic-video/internal/domain/customer"
 	"github.com/google/uuid"
 	"github.com/shopspring/decimal"
 )
@@ -16,23 +17,23 @@ var (
 )
 
 type OrderService interface {
-	ProcessCart(customer *domain.Customer, input *CreateOrderInput) (*domain.Order, error)
+	ProcessCart(customer *customer.Customer, input *CreateOrderInput) (*Order, error)
 }
 
 type orderService struct {
-	transactionProvider        repository.TransactionProvider
-	videoCompositionRepository repository.VideoCompositionRepository
-	productTypeRepository      repository.ProductTypeRepository
-	orderRepository            repository.OrderRepository
-	orderLineRepository        repository.OrderLineRepository
+	transactionProvider        base.TransactionProvider
+	videoCompositionRepository composition.VideoCompositionRepository
+	productTypeRepository      ProductTypeRepository
+	orderRepository            OrderRepository
+	orderLineRepository        OrderLineRepository
 }
 
 func NewOrderService(
-	transactionProvider repository.TransactionProvider,
-	videoCompositionRepository repository.VideoCompositionRepository,
-	productTypeRepository repository.ProductTypeRepository,
-	orderRepository repository.OrderRepository,
-	orderLineRepository repository.OrderLineRepository,
+	transactionProvider base.TransactionProvider,
+	videoCompositionRepository composition.VideoCompositionRepository,
+	productTypeRepository ProductTypeRepository,
+	orderRepository OrderRepository,
+	orderLineRepository OrderLineRepository,
 ) OrderService {
 	return &orderService{
 		transactionProvider:        transactionProvider,
@@ -55,8 +56,8 @@ type CreateOrderCartItemInput struct {
 }
 
 type CartItemDetails struct {
-	Product              *domain.Product
-	VideoComposition     *domain.VideoComposition
+	Product              *Product
+	VideoComposition     *composition.VideoComposition
 	Quantity             int
 	NetAmountUnrounded   decimal.Decimal
 	VatAmountUnrounded   decimal.Decimal
@@ -66,7 +67,7 @@ type CartItemDetails struct {
 	GrossAmountRounded   decimal.Decimal
 }
 
-func (o *orderService) ProcessCart(customer *domain.Customer, input *CreateOrderInput) (*domain.Order, error) {
+func (o *orderService) ProcessCart(customer *customer.Customer, input *CreateOrderInput) (*Order, error) {
 	productTypes, err := o.loadProducts(input)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load products: %w", err)
@@ -131,35 +132,34 @@ func (o *orderService) ProcessCart(customer *domain.Customer, input *CreateOrder
 		taxBreakdownRounded[rate] = amount.Round(2)
 	}
 
-	var order *domain.Order
-	err = o.transactionProvider.Transaction(func(tx *repository.Tx) error {
-		order = &domain.Order{
+	var order *Order
+	err = o.transactionProvider.Transaction(func(tx *base.Tx) error {
+		order = &Order{
 			CustomerID:     customer.ID,
-			Customer:       customer,
 			GrossAmount:    totalGrossUnrounded.Round(2),
 			NetAmount:      totalNetUnrounded.Round(2),
 			TaxAmount:      totalVATUnrounded.Round(2),
 			TaxBreakdown:   taxBreakdownRounded,
-			Status:         domain.OrderStatusPending,
-			PaymentStatus:  domain.OrderPaymentStatusPending,
-			IdempotencyKey: fmt.Sprintf("%s:%s", customer.UUID, input.IdempotencyKey),
-			OrderLines:     make([]domain.OrderLine, len(cartItems)),
+			Status:         OrderStatusPending,
+			PaymentStatus:  OrderPaymentStatusPending,
+			IdempotencyKey: fmt.Sprintf("%s:%s", customer.ID, input.IdempotencyKey),
+			OrderLines:     make([]OrderLine, len(cartItems)),
 		}
 
-		err := o.orderRepository.Create(repository.WriteOptions{Tx: tx}, order)
+		err := o.orderRepository.Create(base.WriteOptions{Tx: tx}, order)
 		if err != nil {
 			return fmt.Errorf("failed to create order in db: %w", err)
 		}
 
 		for i, cartItem := range cartItems {
-			orderLine := &domain.OrderLine{
+			orderLine := &OrderLine{
 				Quantity:           cartItem.Quantity,
 				OrderID:            order.ID,
 				VideoCompositionID: cartItem.VideoComposition.ID,
 				ProductID:          cartItem.Product.ID,
 				Amount:             cartItem.GrossAmountRounded,
 			}
-			err = o.orderLineRepository.Create(repository.WriteOptions{Tx: tx}, orderLine)
+			err = o.orderLineRepository.Create(base.WriteOptions{Tx: tx}, orderLine)
 			if err != nil {
 				return fmt.Errorf("failed to create order line in db: %w", err)
 			}
@@ -175,19 +175,19 @@ func (o *orderService) ProcessCart(customer *domain.Customer, input *CreateOrder
 	return order, nil
 }
 
-func (o *orderService) loadVideoCompositions(input *CreateOrderInput) (map[uuid.UUID]*domain.VideoComposition, error) {
-	videoCompositions := make(map[uuid.UUID]*domain.VideoComposition)
+func (o *orderService) loadVideoCompositions(input *CreateOrderInput) (map[uuid.UUID]*composition.VideoComposition, error) {
+	videoCompositions := make(map[uuid.UUID]*composition.VideoComposition)
 	for _, item := range input.Cart {
 		if videoCompositions[item.VideoCompositionUUID] != nil {
 			continue
 		}
-		videoComposition, err := o.videoCompositionRepository.FindOne(repository.ReadOptions{
-			Scopes: []repository.Scope{
-				repository.VideoCompositionScopes{}.WithUUID(item.VideoCompositionUUID),
+		videoComposition, err := o.videoCompositionRepository.FindOne(base.ReadOptions{
+			Scopes: []base.Scope{
+				//composition.VideoCompositionScopes{}.WithUUID(item.VideoCompositionUUID),
 			},
 		})
 		if err != nil {
-			if errors.Is(err, repository.ErrRecordNotFound) {
+			if errors.Is(err, base.ErrRecordNotFound) {
 				return nil, fmt.Errorf("%w: video composition: %s not found: %w", ErrOrderServiceVideoCompositionNotFound, item.VideoCompositionUUID, err)
 			}
 			return nil, fmt.Errorf("failed to find video composition: %w", err)
@@ -199,20 +199,20 @@ func (o *orderService) loadVideoCompositions(input *CreateOrderInput) (map[uuid.
 }
 
 // loadProducts: loads product types from the database with preloaded current product
-func (o *orderService) loadProducts(input *CreateOrderInput) (map[uuid.UUID]*domain.ProductType, error) {
-	productTypes := make(map[uuid.UUID]*domain.ProductType)
+func (o *orderService) loadProducts(input *CreateOrderInput) (map[uuid.UUID]*ProductType, error) {
+	productTypes := make(map[uuid.UUID]*ProductType)
 	for _, item := range input.Cart {
 		if productTypes[item.ProductTypeUUID] != nil {
 			continue
 		}
-		product, err := o.productTypeRepository.FindOne(repository.ReadOptions{
-			Scopes: []repository.Scope{
-				repository.ProductTypeScopes{}.WithUUID(item.ProductTypeUUID),
+		product, err := o.productTypeRepository.FindOne(base.ReadOptions{
+			Scopes: []base.Scope{
+				//ProductTypeScopes{}.WithUUID(item.ProductTypeUUID),
 			},
-			Preload: []string{repository.ProductTypePreloadProduct},
+			Preload: []string{ProductTypePreloadProduct},
 		})
 		if err != nil {
-			if errors.Is(err, repository.ErrRecordNotFound) {
+			if errors.Is(err, base.ErrRecordNotFound) {
 				return nil, fmt.Errorf("%w: product type: %s not found: %w", ErrOrderServiceProductNotFound, item.ProductTypeUUID, err)
 			}
 			return nil, fmt.Errorf("failed to find product type: %w", err)

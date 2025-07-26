@@ -1,14 +1,26 @@
 package config
 
-type ServerConfig struct {
-	port   string
-	apiUrl string
+import "time"
+
+type SessionConfig struct {
+	jwtTokenSecret        string
+	jwtRefreshTokenSecret string
+	jwtTokenExpiry        time.Duration
+	jwtRefreshTokenExpiry time.Duration
 }
 
-func (c ServerConfig) ApiUrl() string {
-	return c.apiUrl
+func (s SessionConfig) JwtTokenSecret() string {
+	return s.jwtTokenSecret
 }
 
-func (c ServerConfig) Port() string {
-	return c.port
+func (s SessionConfig) JwtRefreshTokenSecret() string {
+	return s.jwtRefreshTokenSecret
+}
+
+func (s SessionConfig) JwtTokenExpiry() time.Duration {
+	return s.jwtTokenExpiry
+}
+
+func (s SessionConfig) JwtRefreshTokenExpiry() time.Duration {
+	return s.jwtRefreshTokenExpiry
 }

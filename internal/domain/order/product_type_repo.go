@@ -1,26 +1,26 @@
-package repository
+package order
 
 import (
-	"github.com/ARTMUC/magic-video/internal/domain"
+	"github.com/ARTMUC/magic-video/internal/domain/base"
 	"gorm.io/gorm"
 )
 
 type ProductTypeRepository interface {
-	BaseRepository[domain.ProductType]
+	base.BaseRepository[ProductType]
 }
 
 type productTypeRepository struct {
-	*BaseRepo[domain.ProductType]
+	*base.BaseRepo[ProductType]
 
 	db *gorm.DB
 }
 
 func NewProductTypeRepo(db *gorm.DB) ProductTypeRepository {
-	return &productTypeRepository{NewBaseRepository[domain.ProductType](db), db}
+	return &productTypeRepository{base.NewBaseRepository[ProductType](db), db}
 }
 
 type ProductTypeScopes struct {
-	BaseScopes
+	base.BaseScopes
 }
 
 const (

@@ -1,86 +1,100 @@
-package customer_auth
+package order
 
 import (
 	"context"
 	"errors"
 
-	"github.com/ARTMUC/magic-video/api/handler/customer_auth/dto"
+	"github.com/ARTMUC/magic-video/api/handler/order/orderdto"
+	"github.com/ARTMUC/magic-video/internal/domain/customer"
+	"github.com/ARTMUC/magic-video/internal/domain/job"
+	"github.com/ARTMUC/magic-video/internal/domain/order"
 	"github.com/ARTMUC/magic-video/internal/logger"
 	"github.com/ARTMUC/magic-video/internal/service"
 	"github.com/danielgtaylor/huma/v2"
 	"go.uber.org/zap"
 )
 
-type CustomerAuthController struct {
-	customerService service.CustomerService
-	sessionService  service.SessionService
+type OrderController struct {
+	customerService         customer.CustomerService
+	sessionService          service.SessionService
+	orderService            order.OrderService
+	paymentService          order.PaymentService
+	videoCompositionService job.VideoCompositionService
 }
 
-func NewCustomerAuthController(
-	customerService service.CustomerService,
+func NewOrderController(
+	customerService customer.CustomerService,
 	sessionService service.SessionService,
-) *CustomerAuthController {
-	return &CustomerAuthController{
-		customerService: customerService,
-		sessionService:  sessionService,
+	orderService order.OrderService,
+	paymentService order.PaymentService,
+	videoCompositionService job.VideoCompositionService,
+) *OrderController {
+	return &OrderController{
+		customerService:         customerService,
+		sessionService:          sessionService,
+		orderService:            orderService,
+		paymentService:          paymentService,
+		videoCompositionService: videoCompositionService,
 	}
 }
 
-func (c *CustomerAuthController) CreateAccess(
+func (c *OrderController) ProcessWebhook(
 	ctx context.Context,
-	input *dto.CreateAccessRequestInput,
-) (*struct{}, error) {
-	// @TODO need to limit sending emails -> save email in db as one email not as an array of emails
-	// and before sending email check if it was not send already this day (check email + template)
-	_, err := c.customerService.CreateAccessThruEmail(input.Body.Email)
+	input *orderdto.WebhookRequest,
+) (*orderdto.WebhookResponse, error) {
+	order, err := c.paymentService.ProcessWebhook(input.Request)
 	if err != nil {
-		logger.Log.Error("Error sending access email", zap.Error(err))
-		return nil, huma.Error500InternalServerError("Internal Server Error")
+		logger.Log.Error("Error processing webhook", zap.Error(err))
+		if errors.Is(err, order.ErrPaymentServiceOrderNotFound) || errors.Is(err, order.ErrPaymentServiceOrderTransactionNotFound) {
+			return nil, huma.Error400BadRequest("Invalid sessionId")
+		}
 	}
 
-	return &struct{}{}, nil
-}
-
-func (c *CustomerAuthController) Signin(
-	ctx context.Context,
-	input *dto.SigninRequestInput,
-) (*dto.CustomerAuthSigninOutput, error) {
-	customer, err := c.customerService.GetCustomerFromToken(input.Body.CustomerUUID, input.Body.Token)
+	err = c.videoCompositionService.Enqueue(order)
 	if err != nil {
-		logger.Log.Error("Error getting customer from access token", zap.Error(err))
-		return nil, huma.Error401Unauthorized("Not authorized to sign in")
-	}
-	session, err := c.sessionService.CreateCustomerSession(customer)
-	if err != nil {
-		logger.Log.Error("Error creating customer session", zap.Error(err))
-		return nil, huma.Error401Unauthorized("Not authorized to sign in")
+		logger.Log.Error("Error enqueuing video composition job", zap.Error(err))
+		return nil, huma.Error500InternalServerError("Internal server error")
 	}
 
-	return &dto.CustomerAuthSigninOutput{
-		Body: (&dto.CustomerAuthSigninOutputBody{}).Transform(session),
+	return &orderdto.WebhookResponse{
+		Body: orderdto.WebhookResponseBody{
+			Status: "OK",
+		},
 	}, nil
 }
 
-func (c *CustomerAuthController) GetCustomer(
+func (c *OrderController) CreateOrder(
 	ctx context.Context,
-	input *struct{},
-) (*dto.GetCustomerOutput, error) {
-	session, ok := c.sessionService.ClaimsFromContext(ctx)
+	input *orderdto.CreateOrderRequest,
+) (*orderdto.CreateOrderResponse, error) {
+	session, ok := c.sessionService.CustomerClaimsFromContext(ctx)
 	if !ok {
 		logger.Log.Error("Session not found in context")
-		return nil, huma.Error400BadRequest("Invalid customer session")
+		return nil, huma.Error403Forbidden("Invalid customer session")
 	}
 
-	customer, err := c.customerService.GetCustomerByUUID(session.EntityUUID)
+	order, err := c.orderService.ProcessCart(session.Entity, input.Body.Transform(&order.CreateOrderInput{}))
 	if err != nil {
-		logger.Log.Error("Can't find customer by uuid", zap.Error(err))
-		if errors.Is(err, service.ErrCustomerNotFound) {
-			return nil, huma.Error400BadRequest("Invalid customer session")
+		logger.Log.Error("Error processing cart", zap.Error(err))
+		switch {
+		case errors.Is(err, order.ErrOrderServiceProductNotFound),
+			errors.Is(err, order.ErrOrderServiceVideoCompositionNotFound):
+			return nil, huma.Error400BadRequest("Invalid request body")
 		}
-		return nil, huma.Error500InternalServerError("Internal Server Error")
+		return nil, huma.Error500InternalServerError("Internal server error")
 	}
 
-	return &dto.GetCustomerOutput{
-		Body: (&dto.GetCustomerOutputBody{}).Transform(customer),
+	transaction, err := c.paymentService.CreateTransaction(order, session.Entity)
+	if err != nil {
+		logger.Log.Error("Error creating payment", zap.Error(err))
+		return nil, huma.Error500InternalServerError("Internal server error")
+	}
+
+	return &orderdto.CreateOrderResponse{
+		Body: &orderdto.CreateOrderResponseBody{
+			SessionID:  transaction.SessionIden,
+			PaymentURL: transaction.PaymentUrl,
+			Token:      transaction.Token,
+		},
 	}, nil
 }

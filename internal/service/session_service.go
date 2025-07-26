@@ -7,16 +7,16 @@ import (
 
 	"github.com/ARTMUC/magic-video/internal/config"
 	"github.com/ARTMUC/magic-video/internal/crud"
-	"github.com/ARTMUC/magic-video/internal/domain"
-	"github.com/ARTMUC/magic-video/internal/repository"
+	"github.com/ARTMUC/magic-video/internal/domain/base"
+	"github.com/ARTMUC/magic-video/internal/domain/customer"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 )
 
 type SessionService interface {
-	CreateCustomerSession(customer *domain.Customer) (*SessionOutput, error)
-	ParseCustomerToken(tokenStr string, isRefresh bool) (*JWTClaimsWithEntity[*domain.Customer], error)
-	CustomerClaimsFromContext(ctx context.Context) (*JWTClaimsWithEntity[*domain.Customer], bool)
+	CreateCustomerSession(customer *customer.Customer) (*SessionOutput, error)
+	ParseCustomerToken(tokenStr string, isRefresh bool) (*JWTClaimsWithEntity[*customer.Customer], error)
+	CustomerClaimsFromContext(ctx context.Context) (*JWTClaimsWithEntity[*customer.Customer], bool)
 }
 type sessionService struct {
 	sessionConfig config.SessionConfig
@@ -42,17 +42,15 @@ type JWTClaims struct {
 	jwt.RegisteredClaims
 
 	EntityName string    `json:"entity_name"`
-	EntityID   uint      `json:"entity_id"`
-	EntityUUID uuid.UUID `json:"entity_uuid"`
+	EntityID   uuid.UUID `json:"entity_id"`
 	Refresh    bool      `json:"refresh"`
 }
 
-func (s *sessionService) CreateCustomerSession(customer *domain.Customer) (*SessionOutput, error) {
+func (s *sessionService) CreateCustomerSession(customer *customer.Customer) (*SessionOutput, error) {
 	now := time.Now()
 	accessClaims := JWTClaims{
 		EntityName: "customer",
 		EntityID:   customer.ID,
-		EntityUUID: customer.UUID,
 		Refresh:    false,
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(now.Add(s.sessionConfig.JwtTokenExpiry())),
@@ -68,7 +66,6 @@ func (s *sessionService) CreateCustomerSession(customer *domain.Customer) (*Sess
 	refreshClaims := JWTClaims{
 		EntityName: "customer",
 		EntityID:   customer.ID,
-		EntityUUID: customer.UUID,
 		Refresh:    true,
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(now.Add(s.sessionConfig.JwtRefreshTokenExpiry())),
@@ -87,7 +84,7 @@ func (s *sessionService) CreateCustomerSession(customer *domain.Customer) (*Sess
 	}, nil
 }
 
-func (s *sessionService) ParseCustomerToken(tokenStr string, isRefresh bool) (*JWTClaimsWithEntity[*domain.Customer], error) {
+func (s *sessionService) ParseCustomerToken(tokenStr string, isRefresh bool) (*JWTClaimsWithEntity[*customer.Customer], error) {
 	secret := s.sessionConfig.JwtTokenSecret()
 	if isRefresh {
 		secret = s.sessionConfig.JwtRefreshTokenSecret()
@@ -106,13 +103,13 @@ func (s *sessionService) ParseCustomerToken(tokenStr string, isRefresh bool) (*J
 		return nil, fmt.Errorf("invalid token claims")
 	}
 
-	customer, err := s.customerCrud.Get(claims.EntityUUID, repository.ReadOptions{})
+	cus, err := s.customerCrud.Get(claims.EntityID, base.ReadOptions{})
 	if err != nil {
 		return nil, fmt.Errorf("can't get customer by uuid: %w", err)
 	}
 
-	result := &JWTClaimsWithEntity[*domain.Customer]{
-		Entity:    customer,
+	result := &JWTClaimsWithEntity[*customer.Customer]{
+		Entity:    cus,
 		JWTClaims: *claims,
 	}
 
@@ -171,7 +168,7 @@ func (s *sessionService) RefreshAccessToken(refreshToken string) (string, error)
 	return signedToken, nil
 }
 
-func (s *sessionService) CustomerClaimsFromContext(ctx context.Context) (*JWTClaimsWithEntity[*domain.Customer], bool) {
-	claims, ok := ctx.Value("auth").(*JWTClaimsWithEntity[*domain.Customer])
+func (s *sessionService) CustomerClaimsFromContext(ctx context.Context) (*JWTClaimsWithEntity[*customer.Customer], bool) {
+	claims, ok := ctx.Value("auth").(*JWTClaimsWithEntity[*customer.Customer])
 	return claims, ok
 }

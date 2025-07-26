@@ -1,15 +1,20 @@
-package domain
+package order
+
+import (
+	"github.com/ARTMUC/magic-video/internal/domain/base"
+	"github.com/google/uuid"
+)
 
 type OrderTransaction struct {
-	BaseModel
+	base.BaseModel
 
-	OrderID uint
-	Order   *Order `gorm:"constraint:OnUpdate:CASCADE,OnDelete:RESTRICT"`
-	
-	Amount          int    `gorm:"type:int"`
-	Method          string `gorm:"type:varchar(100)"`
-	Token           string `gorm:"type:varchar(255)"`
-	SessionIden     string `gorm:"unique_index"`
-	TransactionIden string `gorm:"unique_index"`
-	PaymentUrl      string `gorm:"type:text"`
+	OrderID uuid.UUID
+	Order   *Order
+
+	Amount          int
+	Method          string
+	Token           string
+	SessionIden     string
+	TransactionIden string
+	PaymentUrl      string
 }

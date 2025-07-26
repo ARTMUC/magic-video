@@ -1,10 +1,14 @@
-package domain
+package composition
+
+import (
+	"github.com/ARTMUC/magic-video/internal/domain/base"
+	"github.com/google/uuid"
+)
 
 type Image struct {
-	BaseModel
+	base.BaseModel
 
-	Name               string `gorm:"type:varchar(255)"`
-	PresetImageType    string `gorm:"type:varchar(255)"` // for example front, side || kid, parent || man, woman || person1, person2, person3 - whatever just to recognize it in video processor
-	VideoCompositionID uint
-	VideoComposition   *VideoComposition `gorm:"constraint:OnUpdate:CASCADE,OnDelete:RESTRICT""`
+	Name               string
+	PresetImageType    string
+	VideoCompositionID uuid.UUID
 }

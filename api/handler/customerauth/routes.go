@@ -1,4 +1,4 @@
-package customer_auth
+package customerauth
 
 import (
 	"net/http"

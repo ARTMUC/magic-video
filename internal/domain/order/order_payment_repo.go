@@ -1,29 +1,29 @@
-package repository
+package order
 
 import (
-	"github.com/ARTMUC/magic-video/internal/domain"
+	"github.com/ARTMUC/magic-video/internal/domain/base"
 	"gorm.io/gorm"
 )
 
 type OrderPaymentRepository interface {
-	BaseRepository[domain.OrderPayment]
+	base.BaseRepository[OrderPayment]
 }
 
 type orderPaymentRepository struct {
-	*BaseRepo[domain.OrderPayment]
+	*base.BaseRepo[OrderPayment]
 
 	db *gorm.DB
 }
 
 func NewOrderPaymentRepo(db *gorm.DB) OrderPaymentRepository {
-	return &orderPaymentRepository{NewBaseRepository[domain.OrderPayment](db), db}
+	return &orderPaymentRepository{base.NewBaseRepository[OrderPayment](db), db}
 }
 
 type OrderPaymentScopes struct {
-	BaseScopes
+	base.BaseScopes
 }
 
-func (s OrderPaymentScopes) WithSessionID(sessionID string) Scope {
+func (s OrderPaymentScopes) WithSessionID(sessionID string) base.Scope {
 	return func(db *gorm.DB) *gorm.DB {
 		return db.Where("session_id = ?", sessionID)
 	}

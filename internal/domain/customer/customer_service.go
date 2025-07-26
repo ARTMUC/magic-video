@@ -1,4 +1,4 @@
-package service
+package customer
 
 import (
 	"crypto/rand"
@@ -10,10 +10,9 @@ import (
 	"time"
 
 	"github.com/ARTMUC/magic-video/internal/config"
-	"github.com/ARTMUC/magic-video/internal/domain"
+	"github.com/ARTMUC/magic-video/internal/domain/base"
 	"github.com/ARTMUC/magic-video/internal/mailer"
 	"github.com/ARTMUC/magic-video/internal/pkg/crypto"
-	"github.com/ARTMUC/magic-video/internal/repository"
 	"github.com/google/uuid"
 )
 
@@ -21,22 +20,22 @@ var ErrCustomerAccessNotFound = errors.New("customer access not found")
 var ErrCustomerNotFound = errors.New("customer not found")
 
 type CustomerService interface {
-	CreateAccessThruEmail(email string) (*domain.Customer, error)
-	GetCustomerFromToken(customerUUID uuid.UUID, accessToken string) (*domain.Customer, error)
-	GetCustomerByUUID(customerUUID uuid.UUID) (*domain.Customer, error)
+	CreateAccessThruEmail(email string) (*Customer, error)
+	GetCustomerFromToken(customerUUID uuid.UUID, accessToken string) (*Customer, error)
+	GetCustomerByUUID(customerUUID uuid.UUID) (*Customer, error)
 }
 
 type customerService struct {
-	customerRepository       repository.CustomerRepository
-	customerAccessRepository repository.CustomerAccessRepository
+	customerRepository       CustomerRepository
+	customerAccessRepository CustomerAccessRepository
 	customerAccessMailSender mailer.CustomerAccessEmailSender
 	serverConfig             config.ServerConfig
 	encryptionConfig         config.EncryptionConfig
 }
 
 func NewCustomerService(
-	customerRepository repository.CustomerRepository,
-	customerAccessRepository repository.CustomerAccessRepository,
+	customerRepository CustomerRepository,
+	customerAccessRepository CustomerAccessRepository,
 	customerAccessMailSender mailer.CustomerAccessEmailSender,
 	serverConfig config.ServerConfig,
 	encryptionConfig config.EncryptionConfig,
@@ -50,12 +49,12 @@ func NewCustomerService(
 	}
 }
 
-func (s *customerService) GetCustomerByUUID(customerUUID uuid.UUID) (*domain.Customer, error) {
-	customer, err := s.customerRepository.FindOne(repository.ReadOptions{
-		Scopes: []repository.Scope{repository.WithUUID(customerUUID)},
+func (s *customerService) GetCustomerByUUID(customerUUID uuid.UUID) (*Customer, error) {
+	customer, err := s.customerRepository.FindOne(base.ReadOptions{
+		Scopes: []base.Scope{base.WithUUID(customerUUID)},
 	})
 	if err != nil {
-		if errors.Is(err, repository.ErrRecordNotFound) {
+		if errors.Is(err, base.ErrRecordNotFound) {
 			return nil, ErrCustomerNotFound
 		}
 		return nil, fmt.Errorf("failed to find customer in db: %w", err)
@@ -63,20 +62,20 @@ func (s *customerService) GetCustomerByUUID(customerUUID uuid.UUID) (*domain.Cus
 	return customer, nil
 }
 
-func (s *customerService) CreateAccessThruEmail(email string) (*domain.Customer, error) {
-	customer, err := s.customerRepository.FindOne(repository.ReadOptions{
-		Scopes: []repository.Scope{
-			repository.CustomerScopes{}.WithEmail(email),
+func (s *customerService) CreateAccessThruEmail(email string) (*Customer, error) {
+	customer, err := s.customerRepository.FindOne(base.ReadOptions{
+		Scopes: []base.Scope{
+			CustomerScopes{}.WithEmail(email),
 		},
 	})
 	if err != nil {
-		if !errors.Is(err, repository.ErrRecordNotFound) {
+		if !errors.Is(err, base.ErrRecordNotFound) {
 			return nil, fmt.Errorf("failed to find customer with email %s: %w", email, err)
 		} else {
-			customer = &domain.Customer{
+			customer = &Customer{
 				Email: email,
 			}
-			err = s.customerRepository.Create(repository.WriteOptions{}, customer)
+			err = s.customerRepository.Create(base.WriteOptions{}, customer)
 			if err != nil {
 				return nil, fmt.Errorf("failed to create customer in db: %w", err)
 			}
@@ -112,16 +111,16 @@ func (s *customerService) CreateAccessThruEmail(email string) (*domain.Customer,
 	return customer, nil
 }
 
-func (s *customerService) CreateCustomerAccess(customer *domain.Customer) (*domain.CustomerAccess, error) {
-	customerAccess, err := s.customerAccessRepository.FindOne(repository.ReadOptions{
-		Scopes: []repository.Scope{
-			repository.CustomerAccessScopes{}.WithCustomer(customer),
-			repository.CustomerAccessScopes{}.WithNotExpired(),
-			repository.CustomerAccessScopes{}.OrderBy("customer_accesses.id DESC"),
+func (s *customerService) CreateCustomerAccess(customer *Customer) (*CustomerAccess, error) {
+	customerAccess, err := s.customerAccessRepository.FindOne(base.ReadOptions{
+		Scopes: []base.Scope{
+			CustomerAccessScopes{}.WithCustomer(customer),
+			CustomerAccessScopes{}.WithNotExpired(),
+			CustomerAccessScopes{}.OrderBy("customer_accesses.id DESC"),
 		},
 	})
 	if err != nil {
-		if !errors.Is(err, repository.ErrRecordNotFound) {
+		if !errors.Is(err, base.ErrRecordNotFound) {
 			return nil, fmt.Errorf("failed to find customer access in db: %w", err)
 		} else {
 			// ok
@@ -143,14 +142,14 @@ func (s *customerService) CreateCustomerAccess(customer *domain.Customer) (*doma
 
 	expiresAt := time.Now().Add(30 * 24 * time.Hour)
 
-	customerAccess = &domain.CustomerAccess{
+	customerAccess = &CustomerAccess{
 		CustomerID:      customer.ID,
 		Customer:        customer,
 		AccessToken:     encodedToken,
 		TokenExpireDate: expiresAt,
 	}
 
-	err = s.customerAccessRepository.Create(repository.WriteOptions{}, customerAccess)
+	err = s.customerAccessRepository.Create(base.WriteOptions{}, customerAccess)
 	if err != nil {
 		return nil, fmt.Errorf("failed to save customer access in db: %w", err)
 	}
@@ -158,21 +157,21 @@ func (s *customerService) CreateCustomerAccess(customer *domain.Customer) (*doma
 	return customerAccess, nil
 }
 
-func (s *customerService) GetCustomerFromToken(customerUUID uuid.UUID, token string) (*domain.Customer, error) {
-	customer, err := s.customerRepository.FindOne(repository.ReadOptions{
-		Scopes: []repository.Scope{repository.WithUUID(customerUUID)},
+func (s *customerService) GetCustomerFromToken(customerUUID uuid.UUID, token string) (*Customer, error) {
+	customer, err := s.customerRepository.FindOne(base.ReadOptions{
+		Scopes: []base.Scope{base.WithUUID(customerUUID)},
 	})
 	if err != nil {
-		if !errors.Is(err, repository.ErrRecordNotFound) {
+		if !errors.Is(err, base.ErrRecordNotFound) {
 			return nil, fmt.Errorf("failed to find customer in db: %w", err)
 		}
 		return nil, ErrCustomerNotFound
 	}
 
-	customerAccesses, err := s.customerAccessRepository.FindMany(repository.ReadOptions{
-		Scopes: []repository.Scope{
-			repository.CustomerAccessScopes{}.WithNotExpired(),
-			repository.CustomerAccessScopes{}.WithCustomer(customer),
+	customerAccesses, err := s.customerAccessRepository.FindMany(base.ReadOptions{
+		Scopes: []base.Scope{
+			CustomerAccessScopes{}.WithNotExpired(),
+			CustomerAccessScopes{}.WithCustomer(customer),
 		},
 	})
 	if err != nil {

@@ -1,37 +1,37 @@
-package repository
+package customer
 
 import (
 	"time"
 
-	"github.com/ARTMUC/magic-video/internal/domain"
+	"github.com/ARTMUC/magic-video/internal/domain/base"
 	"gorm.io/gorm"
 )
 
 type CustomerAccessRepository interface {
-	BaseRepository[domain.CustomerAccess]
+	base.BaseRepository[CustomerAccess]
 }
 
 type customerAccessRepo struct {
-	*BaseRepo[domain.CustomerAccess]
+	*base.BaseRepo[CustomerAccess]
 
 	db *gorm.DB
 }
 
 func NewCustomerAccessRepo(db *gorm.DB) CustomerAccessRepository {
-	return &customerAccessRepo{NewBaseRepository[domain.CustomerAccess](db), db}
+	return &customerAccessRepo{base.NewBaseRepository[CustomerAccess](db), db}
 }
 
 type CustomerAccessScopes struct {
-	BaseScopes
+	base.BaseScopes
 }
 
-func (u CustomerAccessScopes) WithCustomer(customer *domain.Customer) Scope {
+func (u CustomerAccessScopes) WithCustomer(customer *Customer) base.Scope {
 	return func(db *gorm.DB) *gorm.DB {
 		return db.Where("customer_accesses.customer_id = ?", customer.ID)
 	}
 }
 
-func (u CustomerAccessScopes) WithNotExpired() Scope {
+func (u CustomerAccessScopes) WithNotExpired() base.Scope {
 	return func(db *gorm.DB) *gorm.DB {
 		return db.Where("customer_accesses.token_expire_date > ?", time.Now())
 	}

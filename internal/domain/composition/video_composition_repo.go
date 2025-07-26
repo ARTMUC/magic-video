@@ -1,16 +1,16 @@
-package repository
+package composition
 
 import (
-	"github.com/ARTMUC/magic-video/internal/domain"
+	"github.com/ARTMUC/magic-video/internal/domain/base"
 	"gorm.io/gorm"
 )
 
 type VideoCompositionRepository interface {
-	BaseRepository[domain.VideoComposition]
+	base.BaseRepository[VideoComposition]
 }
 
 type videoCompositionRepository struct {
-	*BaseRepo[domain.VideoComposition]
+	*base.BaseRepo[VideoComposition]
 
 	db *gorm.DB
 }
@@ -20,5 +20,5 @@ func NewVideoCompositionRepository(db *gorm.DB) VideoCompositionRepository {
 }
 
 type VideoCompositionScopes struct {
-	BaseScopes
+	base.BaseScopes
 }

@@ -1,8 +1,13 @@
-package domain
+package order
+
+import (
+	"github.com/ARTMUC/magic-video/internal/domain/base"
+	"github.com/google/uuid"
+)
 
 type ProductType struct {
-	BaseModel
+	base.BaseModel
 
-	ProductID uint     // current product version
-	Product   *Product `gorm:"constraint:OnUpdate:CASCADE,OnDelete:RESTRICT"`
+	ProductID uuid.UUID // current product version
+	Product   *Product  `gorm:"constraint:OnUpdate:CASCADE,OnDelete:RESTRICT"`
 }

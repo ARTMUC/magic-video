@@ -1,12 +1,17 @@
-package domain
+package customer
 
-import "time"
+import (
+	"time"
+
+	"github.com/ARTMUC/magic-video/internal/domain/base"
+	"github.com/google/uuid"
+)
 
 type CustomerAccess struct {
-	BaseModel
+	base.BaseModel
 
-	CustomerID      uint
-	Customer        *Customer `gorm:"constraint:OnUpdate:CASCADE,OnDelete:RESTRICT""`
-	AccessToken     string    `gorm:"type:varchar(255);uniqueIndex;not null"`
-	TokenExpireDate time.Time `gorm:"type:datetime;not null"`
+	CustomerID      uuid.UUID
+	Customer        *Customer
+	AccessToken     string
+	TokenExpireDate time.Time
 }

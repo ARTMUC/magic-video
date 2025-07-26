@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: api-config
+  namespace: magic-video
+data:
+  DB_HOST: "mysql-service"
+  DB_PORT: "3306"
+  DB_USER: "magic_user"
+  DB_PASSWORD: "userpassword"
+  DB_NAME: "magic_video"
+  SERVER_PORT: "8080"
+  SERVER_HOST: "0.0.0.0"

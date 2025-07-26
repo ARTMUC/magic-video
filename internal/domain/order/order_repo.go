@@ -1,24 +1,24 @@
-package repository
+package order
 
 import (
-	"github.com/ARTMUC/magic-video/internal/domain"
+	"github.com/ARTMUC/magic-video/internal/domain/base"
 	"gorm.io/gorm"
 )
 
 type OrderRepository interface {
-	BaseRepository[domain.Order]
+	base.BaseRepository[Order]
 }
 
 type orderRepository struct {
-	*BaseRepo[domain.Order]
+	*base.BaseRepo[Order]
 
 	db *gorm.DB
 }
 
 func NewOrderRepo(db *gorm.DB) OrderRepository {
-	return &orderRepository{NewBaseRepository[domain.Order](db), db}
+	return &orderRepository{base.NewBaseRepository[Order](db), db}
 }
 
 type OrderScopes struct {
-	BaseScopes
+	base.BaseScopes
 }

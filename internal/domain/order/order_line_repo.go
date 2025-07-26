@@ -1,33 +1,34 @@
-package repository
+package order
 
 import (
-	"github.com/ARTMUC/magic-video/internal/domain"
+	"github.com/ARTMUC/magic-video/internal/domain/base"
+	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
 
 type OrderLineRepository interface {
-	BaseRepository[domain.OrderLine]
+	base.BaseRepository[OrderLine]
 }
 
 type orderLineRepository struct {
-	*BaseRepo[domain.OrderLine]
+	*base.BaseRepo[OrderLine]
 
 	db *gorm.DB
 }
 
 func NewOrderLineRepo(db *gorm.DB) OrderLineRepository {
-	return &orderLineRepository{NewBaseRepository[domain.OrderLine](db), db}
+	return &orderLineRepository{base.NewBaseRepository[OrderLine](db), db}
 }
 
 type OrderLineScopes struct {
-	BaseScopes
+	base.BaseScopes
 }
 
 const (
 	OrderLinePreloadVideoComposition = "VideoComposition"
 )
 
-func (o OrderLineScopes) WithOrderID(orderID uint) Scope {
+func (o OrderLineScopes) WithOrderID(orderID uuid.UUID) base.Scope {
 	return func(db *gorm.DB) *gorm.DB {
 		return db.Where("order_id = ?", orderID)
 	}

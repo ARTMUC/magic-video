@@ -11,9 +11,9 @@ import (
 	"go.uber.org/zap"
 )
 
-func Auth(
+func Auth[E any](
 	api huma.API,
-	parseFunc func(tokenStr string, isRefresh bool) (*service.JWTClaims, error),
+	parseFunc func(tokenStr string, isRefresh bool) (*service.JWTClaimsWithEntity[E], error),
 ) func(ctx huma.Context, next func(huma.Context)) {
 	return func(ctx huma.Context, next func(huma.Context)) {
 		authHeader := ctx.Header("Authorization")
@@ -26,7 +26,7 @@ func Auth(
 		var tokenString string
 		fmt.Sscanf(authHeader, "Bearer %s", &tokenString)
 
-		claims, err := parseFunc(tokenString, true)
+		claims, err := parseFunc(tokenString, false)
 		if err != nil {
 			logger.Log.Error("Failed to parse token", zap.Error(err))
 			huma.WriteErr(api, ctx, http.StatusUnauthorized, "Unauthorized")
@@ -40,14 +40,14 @@ func Auth(
 			return
 		}
 
-		if expirationTime.After(time.Now().UTC()) {
+		if expirationTime.Before(time.Now().UTC()) {
 			logger.Log.Info("Token expired")
 			huma.WriteErr(api, ctx, http.StatusUnauthorized, "Unauthorized")
 			return
 		}
 
 		ctx = huma.WithValue(ctx, "auth", claims)
-		
+
 		next(ctx)
 	}
 }

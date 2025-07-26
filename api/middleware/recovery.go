@@ -10,7 +10,7 @@ import (
 	"go.uber.org/zap"
 )
 
-func RecoveryMiddleware(next http.Handler) http.Handler {
+func PanicRecovery(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		defer func() {
 			if rec := recover(); rec != nil {

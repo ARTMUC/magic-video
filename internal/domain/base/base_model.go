@@ -1,17 +1,20 @@
-package domain
+package base
 
 import (
+	"time"
+
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
 
 type BaseModel struct {
-	gorm.Model
-
-	UUID uuid.UUID `gorm:"type:varchar(255);not null;uniqueIndex"`
+	ID        uuid.UUID
+	CreatedAt time.Time
+	UpdatedAt time.Time
+	DeletedAt gorm.DeletedAt
 }
 
 func (u *BaseModel) BeforeCreate(tx *gorm.DB) (err error) {
-	u.UUID = uuid.New()
+	u.ID = uuid.New()
 	return
 }

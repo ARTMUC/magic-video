@@ -1,8 +1,9 @@
-package dto
+package orderdto
 
 type WebhookResponse struct {
-	Body struct {
-		Status  string `json:"status" example:"OK"`
-		Message string `json:"message,omitempty" example:"Payment verified successfully"`
-	}
+	Body WebhookResponseBody
+}
+
+type WebhookResponseBody struct {
+	Status string `json:"status" example:"OK"`
 }

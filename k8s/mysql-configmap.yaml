@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mysql-config
+  namespace: magic-video
+data:
+  MYSQL_DATABASE: "magic_video"
+  MYSQL_USER: "magic_user"
+  MYSQL_ROOT_PASSWORD: "rootpassword"
+  MYSQL_PASSWORD: "userpassword"

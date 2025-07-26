@@ -1,29 +1,29 @@
-package repository
+package customer
 
 import (
-	"github.com/ARTMUC/magic-video/internal/domain"
+	"github.com/ARTMUC/magic-video/internal/domain/base"
 	"gorm.io/gorm"
 )
 
 type CustomerRepository interface {
-	BaseRepository[domain.Customer]
+	base.BaseRepository[Customer]
 }
 
 type customerRepo struct {
-	*BaseRepo[domain.Customer]
+	*base.BaseRepo[Customer]
 
 	db *gorm.DB
 }
 
 func NewCustomerRepo(db *gorm.DB) CustomerRepository {
-	return &customerRepo{NewBaseRepository[domain.Customer](db), db}
+	return &customerRepo{base.NewBaseRepository[Customer](db), db}
 }
 
 type CustomerScopes struct {
-	BaseScopes
+	base.BaseScopes
 }
 
-func (u CustomerScopes) WithEmail(email string) Scope {
+func (u CustomerScopes) WithEmail(email string) base.Scope {
 	return func(db *gorm.DB) *gorm.DB {
 		return db.Where("customers.email = ?", email)
 	}

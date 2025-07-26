@@ -1,16 +1,20 @@
-package domain
+package customer
 
-import "database/sql"
+import (
+	"database/sql"
+
+	"github.com/ARTMUC/magic-video/internal/domain/base"
+)
 
 type Customer struct {
-	BaseModel
+	base.BaseModel
 
-	Email              string           `gorm:"type:varchar(255);uniqueIndex;not null"`
-	Name               sql.Null[string] `gorm:"type:varchar(255)"`
-	AddressHomeNumber  sql.Null[string] `gorm:"type:varchar(255)"`
-	AddressStreetName  sql.Null[string] `gorm:"type:varchar(255)"`
-	AddressCity        sql.Null[string] `gorm:"type:varchar(255)"`
-	AddressZipCode     sql.Null[string] `gorm:"type:varchar(255)"`
-	AddressState       sql.Null[string] `gorm:"type:varchar(255)"`
-	AddressCountryCode sql.Null[string] `gorm:"type:varchar(255)"`
+	Email              string
+	Name               sql.Null[string]
+	AddressHomeNumber  sql.Null[string]
+	AddressStreetName  sql.Null[string]
+	AddressCity        sql.Null[string]
+	AddressZipCode     sql.Null[string]
+	AddressState       sql.Null[string]
+	AddressCountryCode sql.Null[string]
 }

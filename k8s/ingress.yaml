@@ -1,0 +1,36 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: magic-video-ingress
+  namespace: magic-video
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+    nginx.ingress.kubernetes.io/cors-allow-origin: "*"
+    nginx.ingress.kubernetes.io/cors-allow-methods: "GET, POST, PUT, DELETE, OPTIONS"
+    nginx.ingress.kubernetes.io/cors-allow-headers: "DNT,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Range,Authorization"
+spec:
+  ingressClassName: nginx
+  rules:
+  - host: magic-video.local
+    http:
+      paths:
+      - path: /api
+        pathType: Prefix
+        backend:
+          service:
+            name: magic-video-api-service
+            port:
+              number: 80
+      # Future frontend path
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: magic-video-frontend-service
+            port:
+              number: 80
+  # For production, you would add TLS configuration here
+  # tls:
+  # - hosts:
+  #   - magic-video.yourdomain.com
+  #   secretName: magic-video-tls

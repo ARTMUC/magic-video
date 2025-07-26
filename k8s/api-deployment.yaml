@@ -1,0 +1,102 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: magic-video-api
+  namespace: magic-video
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: magic-video-api
+  template:
+    metadata:
+      labels:
+        app: magic-video-api
+    spec:
+      containers:
+      - name: api
+        image: magic-video-api:latest
+        ports:
+        - containerPort: 8080
+        env:
+        - name: DB_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: api-config
+              key: DB_HOST
+        - name: DB_PORT
+          valueFrom:
+            configMapKeyRef:
+              name: api-config
+              key: DB_PORT
+        - name: DB_USER
+          valueFrom:
+            configMapKeyRef:
+              name: api-config
+              key: DB_USER
+        - name: DB_PASSWORD
+          valueFrom:
+            configMapKeyRef:
+              name: api-config
+              key: DB_PASSWORD
+        - name: DB_NAME
+          valueFrom:
+            configMapKeyRef:
+              name: api-config
+              key: DB_NAME
+        - name: SERVER_PORT
+          valueFrom:
+            configMapKeyRef:
+              name: api-config
+              key: SERVER_PORT
+        - name: SERVER_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: api-config
+              key: SERVER_HOST
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          failureThreshold: 3
+      initContainers:
+      - name: wait-for-mysql
+        image: busybox:1.35
+        command: ['sh', '-c']
+        args:
+          - |
+            until nc -z mysql-service 3306; do
+              echo "Waiting for MySQL..."
+              sleep 2
+            done
+            echo "MySQL is ready!"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: magic-video-api-service
+  namespace: magic-video
+spec:
+  selector:
+    app: magic-video-api
+  ports:
+  - port: 80
+    targetPort: 8080
+    protocol: TCP
+  type: ClusterIP

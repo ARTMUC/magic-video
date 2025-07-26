@@ -1,27 +1,35 @@
-package composition
+package job
 
 import (
 	"bytes"
+	"database/sql"
 	"fmt"
 	"image"
 	_ "image/jpeg"
 	_ "image/png"
 
+	"github.com/ARTMUC/magic-video/internal/contracts"
 	"github.com/ARTMUC/magic-video/internal/domain/base"
 	"github.com/ARTMUC/magic-video/internal/domain/order"
 	"github.com/ARTMUC/magic-video/internal/pkg/file"
+	"github.com/google/uuid"
 )
 
 type VideoCompositionService interface {
 	Create() error
-	Enqueue(order *order.Order) error
+	Enqueue(orderID uuid.UUID) error
+}
+
+type VideoCompositionsGetter interface {
+	GetByID(id uuid.UUID) (contracts.VideoComposition, bool, error)
 }
 
 type videoCompositionService struct {
-	orderLineRepository           order.OrderLineRepository
-	videoCompositionJobRepository VideoCompositionJobRepository
-	transactionProvider           base.TransactionProvider
-	fileManager                   file.ReaderWriter
+	orderLineRepository     order.OrderLineRepository
+	videoJobRepository      VideoCompositionJobRepository
+	transactionProvider     base.TransactionProvider
+	fileManager             file.ReaderWriter
+	videoCompositionsGetter VideoCompositionsGetter
 }
 
 func NewVideoCompositionService(
@@ -29,64 +37,60 @@ func NewVideoCompositionService(
 	videoCompositionJobRepository VideoCompositionJobRepository,
 	transactionProvider base.TransactionProvider,
 	fileManager file.ReaderWriter,
+	videoCompositionsGetter VideoCompositionsGetter,
 ) VideoCompositionService {
 	return &videoCompositionService{
-		orderLineRepository:           orderLineRepository,
-		videoCompositionJobRepository: videoCompositionJobRepository,
-		transactionProvider:           transactionProvider,
-		fileManager:                   fileManager,
+		orderLineRepository:     orderLineRepository,
+		videoJobRepository:      videoCompositionJobRepository,
+		transactionProvider:     transactionProvider,
+		fileManager:             fileManager,
+		videoCompositionsGetter: videoCompositionsGetter,
 	}
 }
 
-func (v *videoCompositionService) Enqueue(order *order.Order) error {
-	orderLines, err := v.orderLineRepository.FindMany(base.ReadOptions{
-		Scopes:  []base.Scope{OrderLineScopes{}.WithOrderID(order.ID)},
-		Preload: []string{OrderLinePreloadVideoComposition},
-	})
-	if err != nil {
-		return fmt.Errorf("failed to find order lines for orderID %d in db: %w", order.ID, err)
+func (v *videoCompositionService) Enqueue(orderID uuid.UUID) error {
+	videocompositionJob := &VideoCompositionJob{
+		BaseModel: base.BaseModel{},
+		OrderID:   orderID,
+		Status:    VideoCompositionJobStatusCreated,
 	}
-
-	err = v.transactionProvider.Transaction(func(tx *base.Tx) error {
-		for _, orderLine := range orderLines {
-			videocompositionJob := &VideoCompositionJob{
-				BaseModel:          base.BaseModel{},
-				VideoCompositionID: orderLine.VideoCompositionID,
-				VideoComposition:   orderLine.VideoComposition,
-				OrderLineID:        orderLine.ID,
-				OrderLine:          &orderLine,
-				Status:             VideoCompositionJobStatusCreated,
-			}
-			err = v.videoCompositionJobRepository.Create(base.WriteOptions{Tx: tx}, videocompositionJob)
-			if err != nil {
-				return fmt.Errorf("failed to create video composition job in db: %w", err)
-			}
-		}
-
-		return nil
-	})
+	err := v.videoJobRepository.Create(base.WriteOptions{}, videocompositionJob)
 	if err != nil {
-		return fmt.Errorf("failed to commit transaction: %w", err)
+		return fmt.Errorf("failed to create video composition job in db: %w", err)
 	}
 
 	return nil
 }
 
 func (v *videoCompositionService) Create() error {
-	jobs, err := v.videoCompositionJobRepository.FindMany(base.ReadOptions{
+	jobs, err := v.videoJobRepository.FindMany(base.ReadOptions{
 		Scopes: []base.Scope{
 			VideoCompositionJobScopes{}.WithStatus(VideoCompositionJobStatusCreated)},
-		Preload: []string{
-			VideoCompositionJobPreloadOrderLine,
-			VideoCompositionJobPreloadVideoComposition,
-			VideoCompositionJobPreloadVideoCompositionImages,
-		},
+		Preload: []string{},
 	})
 	if err != nil {
 		return fmt.Errorf("failed to get unprocessed jobs: %w", err)
 	}
 
 	for _, job := range jobs {
+		videoCompositions, ok, err := v.videoCompositionsGetter.GetByID(orderLine.videoCompositionID)
+		if !ok {
+			return fmt.Errorf("no composition found by id: %s")
+		}
+		if err != nil {
+			job.Error = sql.Null[string]{
+				V:     err.Error(),
+				Valid: true,
+			}
+			job.Status = VideoCompositionJobStatusFailed
+			updateErr := v.videoJobRepository.Update(base.WriteOptions{}, &job)
+			if updateErr != nil {
+				return fmt.Errorf("failed to update job status: %w", updateErr)
+			}
+
+			return fmt.Errorf("failed to get video compositions: %w", err)
+		}
+
 		switch job.VideoComposition.VideoTemplate {
 		case "SuperHero1":
 			// in future we put code here
@@ -139,7 +143,7 @@ func (v *videoCompositionService) Create() error {
 
 		// Update job status
 		job.Status = VideoCompositionJobStatusCompleted
-		if err := v.videoCompositionJobRepository.Update(base.WriteOptions{}, job); err != nil {
+		if err := v.videoJobRepository.Update(base.WriteOptions{}, job); err != nil {
 			return fmt.Errorf("failed to update job status: %w", err)
 		}
 	}

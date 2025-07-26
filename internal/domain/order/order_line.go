@@ -1,16 +1,17 @@
-package domain
+package order
 
-import "github.com/shopspring/decimal"
+import (
+	"github.com/ARTMUC/magic-video/internal/domain/base"
+	"github.com/google/uuid"
+	"github.com/shopspring/decimal"
+)
 
 type OrderLine struct {
-	BaseModel
+	base.BaseModel
 
-	OrderID            uint
-	Order              *Order `gorm:"constraint:OnUpdate:CASCADE,OnDelete:RESTRICT"`
-	VideoCompositionID uint
-	VideoComposition   *VideoComposition `gorm:"constraint:OnUpdate:CASCADE,OnDelete:RESTRICT"`
-	ProductID          uint
-	Product            *Product        `gorm:"constraint:OnUpdate:CASCADE,OnDelete:RESTRICT"`
-	Quantity           int             `gorm:"type:int;not null"`
-	Amount             decimal.Decimal `gorm:"type:decimal(20,8);not null"`
+	OrderID            uuid.UUID
+	VideoCompositionID uuid.UUID
+	ProductID          uuid.UUID
+	Quantity           int
+	Amount             decimal.Decimal
 }

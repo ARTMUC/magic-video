@@ -1,17 +1,18 @@
 package crud
 
 import (
-	"github.com/ARTMUC/magic-video/internal/domain"
-	"github.com/ARTMUC/magic-video/internal/repository"
+	"github.com/ARTMUC/magic-video/internal/domain/customer"
 )
 
-type MailLogCrud struct {
-	BaseCrud[domain.MailLog]
-	repository repository.MailLogRepository
+type CustomerCrud interface {
+	BaseCrud[customer.Customer]
 }
 
-func NewMailLogCrud(
-	repository repository.MailLogRepository,
-) *MailLogCrud {
-	return &MailLogCrud{BaseCrud: newBaseCrud(repository), repository: repository}
+type customerCrud struct {
+	BaseCrud[customer.Customer]
+	repository customer.CustomerRepository
+}
+
+func NewCustomerCrud(repository customer.CustomerRepository) CustomerCrud {
+	return &customerCrud{BaseCrud: newBaseCrud(repository), repository: repository}
 }

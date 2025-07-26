@@ -1,51 +1,83 @@
 package mailer
 
 import (
-	"bytes"
-	"encoding/json"
+	"context"
 	"fmt"
-	"net/http"
 
 	"github.com/ARTMUC/magic-video/internal/config"
+	"github.com/ARTMUC/magic-video/internal/domain/base"
+	"github.com/ARTMUC/magic-video/internal/domain/mail"
+	brevo "github.com/getbrevo/brevo-go/lib"
 )
 
-var apiKey = "your_brevo_api_key"
-var url = "https://api.brevo.com/v3/smtp/email"
-
-type EmailSender interface {
-	Send(input EmailRequest) error
+type brevoEmailSender struct {
+	config            config.BrevoEmailClientConfig
+	mailLogRepository mail.MailLogRepository
 }
 
-type emailSender struct {
-	config config.BrevoEmailClientConfig
-}
-
-func NewEmailSender(config config.BrevoEmailClientConfig) EmailSender {
-	return &emailSender{config: config}
-}
-
-type EmailRequest struct {
-	Sender      map[string]string   `json:"sender"`
-	To          []map[string]string `json:"to"`
-	Subject     string              `json:"subject"`
-	HTMLContent string              `json:"htmlContent"`
-}
-
-func (e *emailSender) Send(input EmailRequest) error {
-	body, _ := json.Marshal(input)
-
-	req, _ := http.NewRequest("POST", url, bytes.NewBuffer(body))
-	req.Header.Set("accept", "application/json")
-	req.Header.Set("content-type", "application/json")
-	req.Header.Set("api-key", apiKey)
-
-	client := &http.Client{}
-	resp, err := client.Do(req)
-	if err != nil {
-		fmt.Println("Error sending email:", err)
-		return
+func NewBrevoEmailSender(
+	config config.BrevoEmailClientConfig,
+	mailLogRepository mail.MailLogRepository,
+) EmailSender {
+	return &brevoEmailSender{
+		config:            config,
+		mailLogRepository: mailLogRepository,
 	}
-	defer resp.Body.Close()
+}
 
-	fmt.Println("Response status:", resp.Status)
+func (s *brevoEmailSender) Send(input EmailRequest) (*mail.MailLog, error) {
+	cfg := brevo.NewConfiguration()
+	cfg.AddDefaultHeader("api-key", s.config.ApiKey())
+	cfg.AddDefaultHeader("partner-key", s.config.ApiKey())
+	client := brevo.NewAPIClient(cfg)
+
+	sender := brevo.SendSmtpEmailSender{
+		Name:  s.config.SenderName(),
+		Email: s.config.SenderEmail(),
+	}
+
+	email := brevo.SendSmtpEmail{
+		Sender: &sender,
+		To: []brevo.SendSmtpEmailTo{
+			{
+				Email: input.To.Email,
+				Name:  input.To.Name,
+			},
+		},
+		Subject:     input.Subject,
+		HtmlContent: input.HTMLContent,
+	}
+
+	mailLog := &mail.MailLog{
+		RecipientName:  input.To.Name,
+		RecipientEmail: input.To.Email,
+		Template:       input.TemplateName,
+	}
+
+	resp, _, err := client.TransactionalEmailsApi.SendTransacEmail(context.Background(), email)
+	if err != nil {
+		if x, ok := err.(interface {
+			Model() interface{}
+		}); ok && x.Model() != nil {
+			err = fmt.Errorf("error sending email: %w, resp: %s", err, x.Model())
+		} else {
+			err = fmt.Errorf("error sending email: %w", err)
+		}
+		mailLog.Status = "error"
+		mailLog.Error = err.Error()
+		mailLogErr := s.mailLogRepository.Create(base.WriteOptions{}, mailLog)
+		if mailLogErr != nil {
+			return nil, fmt.Errorf("failed to save mail log in db: %w: %w", mailLogErr, err)
+		}
+		return nil, err
+	}
+
+	mailLog.Status = "success"
+	mailLog.Reference = resp.MessageId
+	mailLogErr := s.mailLogRepository.Create(base.WriteOptions{}, mailLog)
+	if mailLogErr != nil {
+		return nil, fmt.Errorf("failed to save mail log in db: %w: %w", mailLogErr, err)
+	}
+
+	return mailLog, nil
 }

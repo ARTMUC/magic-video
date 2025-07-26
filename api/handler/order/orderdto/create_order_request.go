@@ -1,13 +1,39 @@
-package dto
+package orderdto
 
-import "github.com/google/uuid"
+import (
+	"github.com/ARTMUC/magic-video/internal/domain/order"
+	"github.com/google/uuid"
+)
 
 type CreateOrderRequest struct {
 	Body CreateOrderRequestBody
 }
 
 type CreateOrderRequestBody struct {
-	Product    uuid.UUID   `json:"product" required:"true" format:"uuid" doc:"Product ID" example:"123e4567-e89b-12d3-a456-426614174000"`
-	TemplateID uuid.UUID   `json:"template" required:"true" format:"uuid" doc:"Template ID selected by the customer" example:"a1b2c3d4-e5f6-7890-abcd-ef1234567890"`
-	PhotoIDs   []uuid.UUID `json:"photos" required:"true" minItems:"1" format:"uuid" doc:"List of photo IDs selected by the customer" example:"[550e8400-e29b-41d4-a716-446655440000, 6ba7b810-9dad-11d1-80b4-00c04fd430c8]"`
+	Cart           []CartItem `json:"cart" doc:"List of items in the cart" minItems:"1" maxItems:"100"`
+	IdempotencyKey uuid.UUID  `json:"idempotency_key" doc:"Unique key to prevent duplicate orders" format:"uuid"`
+}
+
+func (in CreateOrderRequestBody) Transform(out *order.CreateOrderInput) *order.CreateOrderInput {
+	out.IdempotencyKey = in.IdempotencyKey
+	out.Cart = make([]*order.CreateOrderCartItemInput, len(in.Cart))
+	for i, item := range in.Cart {
+		out.Cart[i] = item.Transform(&order.CreateOrderCartItemInput{})
+	}
+
+	return out
+}
+
+type CartItem struct {
+	ProductTypeUUID      uuid.UUID `json:"product_uuid" doc:"Product's type unique identifier" format:"uuid"`
+	VideoCompositionUUID uuid.UUID `json:"video_composition_uuid" doc:"Video composition's unique identifier" format:"uuid"`
+	Quantity             int       `json:"quantity" doc:"Number of items" minimum:"1" maximum:"1000"`
+}
+
+func (in CartItem) Transform(out *order.CreateOrderCartItemInput) *order.CreateOrderCartItemInput {
+	out.ProductTypeUUID = in.ProductTypeUUID
+	out.VideoCompositionUUID = in.VideoCompositionUUID
+	out.Quantity = in.Quantity
+
+	return out
 }

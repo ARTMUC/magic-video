@@ -1,8 +1,10 @@
-package composition
+package job
 
 import (
+	"database/sql"
+
 	"github.com/ARTMUC/magic-video/internal/domain/base"
-	"github.com/ARTMUC/magic-video/internal/domain/order"
+	"github.com/google/uuid"
 )
 
 const (
@@ -16,9 +18,7 @@ const (
 type VideoCompositionJob struct {
 	base.BaseModel
 
-	VideoCompositionID uint
-	VideoComposition   *VideoComposition `gorm:"constraint:OnUpdate:CASCADE,OnDelete:RESTRICT"`
-	OrderLineID        uint
-	OrderLine          *order.OrderLine `gorm:"constraint:OnUpdate:CASCADE,OnDelete:RESTRICT"`
-	Status             string           `gorm:"type:varchar(255)"`
+	OrderID uuid.UUID
+	Status  string
+	Error   sql.Null[string]
 }

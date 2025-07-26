@@ -1,24 +1,24 @@
-package repository
+package composition
 
 import (
-	"github.com/ARTMUC/magic-video/internal/domain"
+	"github.com/ARTMUC/magic-video/internal/domain/base"
 	"gorm.io/gorm"
 )
 
 type ImageRepository interface {
-	BaseRepository[domain.Image]
+	base.BaseRepository[Image]
 }
 
 type imageRepository struct {
-	*BaseRepo[domain.Image]
+	*base.BaseRepo[Image]
 
 	db *gorm.DB
 }
 
 func NewImageRepo(db *gorm.DB) ImageRepository {
-	return &imageRepository{NewBaseRepository[domain.Image](db), db}
+	return &imageRepository{base.NewBaseRepository[Image](db), db}
 }
 
 type ImageScopes struct {
-	BaseScopes
+	base.BaseScopes
 }

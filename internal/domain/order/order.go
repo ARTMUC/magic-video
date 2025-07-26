@@ -1,10 +1,12 @@
-package domain
+package order
 
 import (
 	"database/sql/driver"
 	"encoding/json"
 	"fmt"
 
+	"github.com/ARTMUC/magic-video/internal/domain/base"
+	"github.com/google/uuid"
 	"github.com/shopspring/decimal"
 )
 
@@ -17,17 +19,16 @@ const (
 )
 
 type Order struct {
-	BaseModel
+	base.BaseModel
 
-	CustomerID     uint
-	Customer       *Customer       `gorm:"constraint:OnUpdate:CASCADE,OnDelete:RESTRICT"`
-	GrossAmount    decimal.Decimal `gorm:"type:decimal(10,2)"`
-	NetAmount      decimal.Decimal `gorm:"type:decimal(10,2)"`
-	TaxAmount      decimal.Decimal `gorm:"type:decimal(10,2)"`
-	TaxBreakdown   TaxBreakdown    `gorm:"type:TEXT"`
-	Status         string          `gorm:"type:varchar(255);not null"`
-	PaymentStatus  string          `gorm:"type:varchar(255);not null"`
-	IdempotencyKey string          `gorm:"type:varchar(255);not null;uniqueIndex"`
+	CustomerID     uuid.UUID
+	GrossAmount    decimal.Decimal
+	NetAmount      decimal.Decimal
+	TaxAmount      decimal.Decimal
+	TaxBreakdown   TaxBreakdown
+	Status         string
+	PaymentStatus  string
+	IdempotencyKey string
 
 	OrderLines        []OrderLine
 	OrderTransactions []OrderTransaction

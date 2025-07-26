@@ -1,4 +1,9 @@
-package domain
+package order
+
+import (
+	"github.com/ARTMUC/magic-video/internal/domain/base"
+	"github.com/google/uuid"
+)
 
 const (
 	OrderPaymentStatusPending   = "pending"
@@ -9,11 +14,11 @@ const (
 )
 
 type OrderPayment struct {
-	BaseModel
+	base.BaseModel
 
-	OrderTransactionID uint
+	OrderTransactionID uuid.UUID
 	OrderTransaction   *OrderTransaction `gorm:"constraint:OnUpdate:CASCADE,OnDelete:RESTRICT"`
-	OrderID            uint
+	OrderID            uuid.UUID
 	Order              *Order `gorm:"constraint:OnUpdate:CASCADE,OnDelete:RESTRICT"`
 	SessionID          string `gorm:"unique_index"`
 }

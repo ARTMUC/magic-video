@@ -1,9 +1,10 @@
-package customer_auth
+package customerauth
 
 import (
 	"context"
 
-	"github.com/ARTMUC/magic-video/api/handler/auth/authdto"
+	"github.com/ARTMUC/magic-video/api/handler/customerauth/authdto"
+	"github.com/ARTMUC/magic-video/internal/domain/customer"
 	"github.com/ARTMUC/magic-video/internal/logger"
 	"github.com/ARTMUC/magic-video/internal/service"
 	"github.com/danielgtaylor/huma/v2"
@@ -11,12 +12,12 @@ import (
 )
 
 type CustomerAuthController struct {
-	customerService service.CustomerService
+	customerService customer.CustomerService
 	sessionService  service.SessionService
 }
 
 func NewCustomerAuthController(
-	customerService service.CustomerService,
+	customerService customer.CustomerService,
 	sessionService service.SessionService,
 ) *CustomerAuthController {
 	return &CustomerAuthController{
@@ -56,7 +57,7 @@ func (c *CustomerAuthController) Signin(
 	}
 
 	return &authdto.CustomerAuthSigninOutput{
-		Body: (&authdto.CustomerAuthSigninOutputBody{}).Transform(session),
+		Body: (&authdto.DtoConverterImpl{}).SessionToCustomerAuthSigninOutputBody(session),
 	}, nil
 }
 
@@ -71,6 +72,6 @@ func (c *CustomerAuthController) GetCustomer(
 	}
 
 	return &authdto.GetCustomerOutput{
-		Body: (&authdto.GetCustomerOutputBody{}).Transform(session.Entity),
+		Body: (&authdto.DtoConverterImpl{}).CustomerToGetCustomerOutputBody(session.Entity),
 	}, nil
 }
