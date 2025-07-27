@@ -5,9 +5,9 @@ import (
 	"github.com/google/uuid"
 )
 
-type ProductType struct {
+type ActiveProduct struct {
 	base.BaseModel
 
 	ProductID uuid.UUID // current product version
-	Product   *Product  `gorm:"constraint:OnUpdate:CASCADE,OnDelete:RESTRICT"`
+	Product   *Product
 }

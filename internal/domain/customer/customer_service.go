@@ -22,7 +22,7 @@ var ErrCustomerNotFound = errors.New("customer not found")
 type CustomerService interface {
 	CreateAccessThruEmail(email string) (*Customer, error)
 	GetCustomerFromToken(customerUUID uuid.UUID, accessToken string) (*Customer, error)
-	GetCustomerByUUID(customerUUID uuid.UUID) (*Customer, error)
+	GetCustomerByID(customerUUID uuid.UUID) (*Customer, error)
 }
 
 type customerService struct {
@@ -49,9 +49,9 @@ func NewCustomerService(
 	}
 }
 
-func (s *customerService) GetCustomerByUUID(customerUUID uuid.UUID) (*Customer, error) {
+func (s *customerService) GetCustomerByID(customerID uuid.UUID) (*Customer, error) {
 	customer, err := s.customerRepository.FindOne(base.ReadOptions{
-		Scopes: []base.Scope{base.WithUUID(customerUUID)},
+		Scopes: []base.Scope{CustomerScopes{}.WithID(customerID)},
 	})
 	if err != nil {
 		if errors.Is(err, base.ErrRecordNotFound) {
@@ -157,9 +157,9 @@ func (s *customerService) CreateCustomerAccess(customer *Customer) (*CustomerAcc
 	return customerAccess, nil
 }
 
-func (s *customerService) GetCustomerFromToken(customerUUID uuid.UUID, token string) (*Customer, error) {
+func (s *customerService) GetCustomerFromToken(customerID uuid.UUID, token string) (*Customer, error) {
 	customer, err := s.customerRepository.FindOne(base.ReadOptions{
-		Scopes: []base.Scope{base.WithUUID(customerUUID)},
+		Scopes: []base.Scope{CustomerScopes{}.WithID(customerID)},
 	})
 	if err != nil {
 		if !errors.Is(err, base.ErrRecordNotFound) {

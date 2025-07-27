@@ -11,8 +11,18 @@ import (
 	"github.com/google/uuid"
 )
 
+type VideoCompositionService interface {
+	GetByID(id uuid.UUID) (contracts.VideoComposition, bool, error)
+}
+
 type videoCompositionService struct {
 	videoCompositionRepository VideoCompositionRepository
+}
+
+func NewVideoCompositionService(videoCompositionRepository VideoCompositionRepository) VideoCompositionService {
+	return &videoCompositionService{
+		videoCompositionRepository: videoCompositionRepository,
+	}
 }
 
 func (v *videoCompositionService) GetByID(id uuid.UUID) (contracts.VideoComposition, bool, error) {

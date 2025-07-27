@@ -6,8 +6,8 @@ import (
 
 	"github.com/ARTMUC/magic-video/api/handler/order/orderdto"
 	"github.com/ARTMUC/magic-video/internal/domain/customer"
-	"github.com/ARTMUC/magic-video/internal/domain/job"
 	"github.com/ARTMUC/magic-video/internal/domain/order"
+	job "github.com/ARTMUC/magic-video/internal/domain/videojob"
 	"github.com/ARTMUC/magic-video/internal/logger"
 	"github.com/ARTMUC/magic-video/internal/service"
 	"github.com/danielgtaylor/huma/v2"
@@ -15,11 +15,11 @@ import (
 )
 
 type OrderController struct {
-	customerService         customer.CustomerService
-	sessionService          service.SessionService
-	orderService            order.OrderService
-	paymentService          order.PaymentService
-	videoCompositionService job.VideoCompositionService
+	customerService customer.CustomerService
+	sessionService  service.SessionService
+	orderService    order.OrderService
+	paymentService  order.PaymentService
+	videoJobService job.VideoJobService
 }
 
 func NewOrderController(
@@ -27,14 +27,14 @@ func NewOrderController(
 	sessionService service.SessionService,
 	orderService order.OrderService,
 	paymentService order.PaymentService,
-	videoCompositionService job.VideoCompositionService,
+	videoJobService job.VideoJobService,
 ) *OrderController {
 	return &OrderController{
-		customerService:         customerService,
-		sessionService:          sessionService,
-		orderService:            orderService,
-		paymentService:          paymentService,
-		videoCompositionService: videoCompositionService,
+		customerService: customerService,
+		sessionService:  sessionService,
+		orderService:    orderService,
+		paymentService:  paymentService,
+		videoJobService: videoJobService,
 	}
 }
 
@@ -42,7 +42,7 @@ func (c *OrderController) ProcessWebhook(
 	ctx context.Context,
 	input *orderdto.WebhookRequest,
 ) (*orderdto.WebhookResponse, error) {
-	order, err := c.paymentService.ProcessWebhook(input.Request)
+	orderResult, err := c.paymentService.ProcessWebhook(input.Request)
 	if err != nil {
 		logger.Log.Error("Error processing webhook", zap.Error(err))
 		if errors.Is(err, order.ErrPaymentServiceOrderNotFound) || errors.Is(err, order.ErrPaymentServiceOrderTransactionNotFound) {
@@ -50,7 +50,7 @@ func (c *OrderController) ProcessWebhook(
 		}
 	}
 
-	err = c.videoCompositionService.Enqueue(order)
+	err = c.videoJobService.Enqueue(orderResult.ID)
 	if err != nil {
 		logger.Log.Error("Error enqueuing video composition job", zap.Error(err))
 		return nil, huma.Error500InternalServerError("Internal server error")
@@ -73,7 +73,7 @@ func (c *OrderController) CreateOrder(
 		return nil, huma.Error403Forbidden("Invalid customer session")
 	}
 
-	order, err := c.orderService.ProcessCart(session.Entity, input.Body.Transform(&order.CreateOrderInput{}))
+	orderResult, err := c.orderService.ProcessCart(session.Entity, input.Body.Transform(&order.CreateOrderInput{}))
 	if err != nil {
 		logger.Log.Error("Error processing cart", zap.Error(err))
 		switch {
@@ -84,7 +84,7 @@ func (c *OrderController) CreateOrder(
 		return nil, huma.Error500InternalServerError("Internal server error")
 	}
 
-	transaction, err := c.paymentService.CreateTransaction(order, session.Entity)
+	transaction, err := c.paymentService.CreateTransaction(orderResult, session.Entity)
 	if err != nil {
 		logger.Log.Error("Error creating payment", zap.Error(err))
 		return nil, huma.Error500InternalServerError("Internal server error")

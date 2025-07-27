@@ -4,7 +4,6 @@ CREATE TABLE products (
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     deleted_at TIMESTAMP NULL,
-    product_type_id VARCHAR(255) NOT NULL,
     name VARCHAR(100) NOT NULL,
     unit_price DECIMAL(10,2) NOT NULL,
     tax_rate DECIMAL(5,2) NOT NULL,
@@ -12,15 +11,12 @@ CREATE TABLE products (
     INDEX idx_products_created_at (created_at),
     INDEX idx_products_updated_at (updated_at),
     INDEX idx_products_deleted_at (deleted_at),
-    INDEX idx_products_product_type_id (product_type_id),
-    INDEX idx_products_name (name),
-    
-    FOREIGN KEY (product_type_id) REFERENCES product_types(id) ON UPDATE CASCADE ON DELETE RESTRICT
+    INDEX idx_products_name (name)
+
 );
 
 -- +goose Down
 DROP INDEX idx_products_name ON products;
-DROP INDEX idx_products_product_type_id ON products;
 DROP INDEX idx_products_deleted_at ON products;
 DROP INDEX idx_products_updated_at ON products;
 DROP INDEX idx_products_created_at ON products;

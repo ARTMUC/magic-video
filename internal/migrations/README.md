@@ -58,7 +58,7 @@ Migrations are numbered and contain the following tables:
 2. `002_create_customer_accesses_table.sql` - customer access tokens table
 3. `003_create_video_compositions_table.sql` - video compositions table
 4. `004_create_images_table.sql` - images table
-5. `005_create_product_types_table.sql` - product types table
+5. `005_create_active_products_table.sql` - product types table
 6. `006_create_products_table.sql` - products table
 7. `007_create_orders_table.sql` - orders table
 8. `008_create_order_lines_table.sql` - order lines table

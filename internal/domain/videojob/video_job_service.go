@@ -15,7 +15,7 @@ import (
 	"github.com/google/uuid"
 )
 
-type VideoCompositionService interface {
+type VideoJobService interface {
 	Create() error
 	Enqueue(orderID uuid.UUID) error
 }
@@ -24,7 +24,7 @@ type VideoCompositionsGetter interface {
 	GetByID(id uuid.UUID) (contracts.VideoComposition, bool, error)
 }
 
-type videoCompositionService struct {
+type videoJobService struct {
 	orderLineRepository     order.OrderLineRepository
 	videoJobRepository      VideoCompositionJobRepository
 	transactionProvider     base.TransactionProvider
@@ -32,14 +32,14 @@ type videoCompositionService struct {
 	videoCompositionsGetter VideoCompositionsGetter
 }
 
-func NewVideoCompositionService(
+func NewVideoJobService(
 	orderLineRepository order.OrderLineRepository,
 	videoCompositionJobRepository VideoCompositionJobRepository,
 	transactionProvider base.TransactionProvider,
 	fileManager file.ReaderWriter,
 	videoCompositionsGetter VideoCompositionsGetter,
-) VideoCompositionService {
-	return &videoCompositionService{
+) VideoJobService {
+	return &videoJobService{
 		orderLineRepository:     orderLineRepository,
 		videoJobRepository:      videoCompositionJobRepository,
 		transactionProvider:     transactionProvider,
@@ -48,7 +48,7 @@ func NewVideoCompositionService(
 	}
 }
 
-func (v *videoCompositionService) Enqueue(orderID uuid.UUID) error {
+func (v *videoJobService) Enqueue(orderID uuid.UUID) error {
 	videocompositionJob := &VideoCompositionJob{
 		BaseModel: base.BaseModel{},
 		OrderID:   orderID,
@@ -62,7 +62,7 @@ func (v *videoCompositionService) Enqueue(orderID uuid.UUID) error {
 	return nil
 }
 
-func (v *videoCompositionService) Create() error {
+func (v *videoJobService) Create() error {
 	jobs, err := v.videoJobRepository.FindMany(base.ReadOptions{
 		Scopes: []base.Scope{
 			VideoCompositionJobScopes{}.WithStatus(VideoCompositionJobStatusCreated)},

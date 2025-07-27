@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/ARTMUC/magic-video/internal/config"
-	"github.com/ARTMUC/magic-video/internal/crud"
 	"github.com/ARTMUC/magic-video/internal/domain/base"
 	"github.com/ARTMUC/magic-video/internal/domain/customer"
 	"github.com/golang-jwt/jwt/v5"
@@ -20,10 +19,10 @@ type SessionService interface {
 }
 type sessionService struct {
 	sessionConfig config.SessionConfig
-	customerCrud  crud.CustomerCrud
+	customerCrud  customer.CustomerCrud
 }
 
-func NewSessionService(sessionConfig config.SessionConfig, customerCrud crud.CustomerCrud) SessionService {
+func NewSessionService(sessionConfig config.SessionConfig, customerCrud customer.CustomerCrud) SessionService {
 	return &sessionService{sessionConfig: sessionConfig, customerCrud: customerCrud}
 }
 

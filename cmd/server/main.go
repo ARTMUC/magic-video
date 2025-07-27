@@ -5,16 +5,26 @@ import (
 	"log"
 	"net/http"
 
+	"github.com/ARTMUC/magic-video/api/handler/customerauth"
+	"github.com/ARTMUC/magic-video/api/handler/order"
 	"github.com/ARTMUC/magic-video/api/middleware"
 	"github.com/ARTMUC/magic-video/internal/config"
 	"github.com/ARTMUC/magic-video/internal/cronjobs"
+	"github.com/ARTMUC/magic-video/internal/domain/base"
 	"github.com/ARTMUC/magic-video/internal/domain/composition"
 	"github.com/ARTMUC/magic-video/internal/domain/customer"
 	"github.com/ARTMUC/magic-video/internal/domain/mail"
 	order2 "github.com/ARTMUC/magic-video/internal/domain/order"
+	job "github.com/ARTMUC/magic-video/internal/domain/videojob"
 	"github.com/ARTMUC/magic-video/internal/logger"
+	"github.com/ARTMUC/magic-video/internal/mailer"
+	"github.com/ARTMUC/magic-video/internal/pkg/file"
+	"github.com/ARTMUC/magic-video/internal/service"
+	"github.com/danielgtaylor/huma/v2"
+	"github.com/danielgtaylor/huma/v2/adapters/humachi"
 	_ "github.com/danielgtaylor/huma/v2/formats/cbor"
 	"github.com/go-chi/chi/v5"
+	"go.uber.org/zap"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 )
@@ -32,93 +42,87 @@ func main() {
 		panic(err)
 	}
 
-	err = db.AutoMigrate(
-		[]any{
-			customer.Customer{},
-			customer.CustomerAccess{},
-			composition.Image{},
-			mail.MailLog{},
-			order2.Order{},
-			order2.OrderLine{},
-			order2.OrderPayment{},
-			order2.OrderTransaction{},
-			order2.Product{},
-			composition.VideoComposition{},
-		}...)
-	if err != nil {
-		panic(err)
-	}
+	// repositories
+	transactionProvider := base.NewTransactionProvider(db)
+	customerRepository := customer.NewCustomerRepo(db)
+	customerAccessRepository := customer.NewCustomerAccessRepo(db)
+	mailLogRepository := mail.NewMailLogRepo(db)
+	orderLineRepository := order2.NewOrderLineRepo(db)
+	orderPaymentRepository := order2.NewOrderPaymentRepo(db)
+	orderRepository := order2.NewOrderRepo(db)
+	orderTransactionRepository := order2.NewOrderTransactionRepo(db)
+	productRepository := order2.NewProductRepo(db)
+	videoCompositionRepository := composition.NewVideoCompositionRepository(db)
+	videoJobRepository := job.NewVideoCompositionJobRepository(db)
 
-	//repositories
-	//transactionProvider := base.NewTransactionProvider(db)
-	//customerRepository := customer.NewCustomerRepo(db)
-	//customerAccessRepository := customer.NewCustomerAccessRepo(db)
-	//mailLogRepository := mail.NewMailLogRepo(db)
-	//orderLineRepository := order2.NewOrderLineRepo(db)
-	//orderPaymentRepository := order2.NewOrderPaymentRepo(db)
-	//orderRepository := order2.NewOrderRepo(db)
-	//orderTransactionRepository := order2.NewOrderTransactionRepo(db)
-	//productRepository := order2.NewProductRepo(db)
-	//videoCompositionRepository := composition.NewVideoCompositionRepository(db)
-	//
-	//// mailer
-	//mailSender := mailer.NewBrevoEmailSender(cnfg.BrevoEmailClientConfig(), mailLogRepository)
-	//customerAccessMailSender := mailer.NewCustomerAccessEmailSender(
-	//	cnfg.ServerConfig(),
-	//	mailSender,
-	//	mailLogRepository,
-	//)
+	// file manager
+	fileManager := &file.LocalFileReaderWriter{}
 
-	//crud
-	//customerCrud := crud.NewCustomerCrud(customerRepository)
+	// mailer
+	mailSender := mailer.NewBrevoEmailSender(cnfg.BrevoEmailClientConfig(), mailLogRepository)
+	customerAccessMailSender := mailer.NewCustomerAccessEmailSender(
+		cnfg.ServerConfig(),
+		mailSender,
+		mailLogRepository,
+	)
+
+	// crud
+	customerCrud := base.NewBaseCrud(customerRepository)
 
 	// services
-	//sessionService := service.NewSessionService(cnfg.SessionConfig(), customerCrud)
-	//customerService := customer.NewCustomerService(
-	//	customerRepository,
-	//	customerAccessRepository,
-	//	customerAccessMailSender,
-	//	cnfg.ServerConfig(),
-	//	cnfg.EncryptionConfig(),
-	//)
-	//orderService := order2.NewOrderService(
-	//	transactionProvider,
-	//	videoCompositionRepository,
-	//	productRepository,
-	//	orderRepository,
-	//	orderLineRepository,
-	//)
-	//paymentService := order2.NewPaymentService(
-	//	cnfg.Przelewy24ClientConfig(),
-	//	transactionProvider,
-	//	orderTransactionRepository,
-	//	orderPaymentRepository,
-	//	orderRepository,
-	//)
-	//videoCompositionService := job.NewVideoCompositionService()
+	sessionService := service.NewSessionService(cnfg.SessionConfig(), customerCrud)
+	customerService := customer.NewCustomerService(
+		customerRepository,
+		customerAccessRepository,
+		customerAccessMailSender,
+		cnfg.ServerConfig(),
+		cnfg.EncryptionConfig(),
+	)
+	orderService := order2.NewOrderService(
+		transactionProvider,
+		videoCompositionRepository,
+		productRepository,
+		orderRepository,
+		orderLineRepository,
+	)
+	paymentService := order2.NewPaymentService(
+		cnfg.Przelewy24ClientConfig(),
+		transactionProvider,
+		orderTransactionRepository,
+		orderPaymentRepository,
+		orderRepository,
+	)
+	videoCompositionService := composition.NewVideoCompositionService(videoCompositionRepository)
+	videoJobService := job.NewVideoJobService(
+		orderLineRepository,
+		videoJobRepository,
+		transactionProvider,
+		fileManager,
+		videoCompositionService,
+	)
 
 	// controllers
-	//customerAuthController := customerauth.NewCustomerAuthController(customerService, sessionService)
-	//orderController := order.NewOrderController(customerService, sessionService, orderService, paymentService)
+	customerAuthController := customerauth.NewCustomerAuthController(customerService, sessionService)
+	orderController := order.NewOrderController(customerService, sessionService, orderService, paymentService, videoJobService)
 
 	router := chi.NewMux()
 	router.Use(middleware.PanicRecovery)
 	router.Use(middleware.RateLimiter)
 	router.Use(middleware.ExtractRequest)
 
-	//api := humachi.New(router, huma.DefaultConfig("My API", "1.0.0"))
-	//customerauth.RegisterRoutes(api, customerAuthController)
-	//order.RegisterRoutes(api, orderController)
+	api := humachi.New(router, huma.DefaultConfig("My API", "1.0.0"))
+	customerauth.RegisterRoutes(api, customerAuthController)
+	order.RegisterRoutes(api, orderController)
 
 	c, err := cronjobs.Start(
 		[]cronjobs.Func{
 			{
 				Cron: "* * * * *",
 				F: func() {
-					//err := videoCompositionService.Create()
-					//if err != nil {
-					//	logger.Log.Error("Failed to create video compositions", zap.Error(err))
-					//}
+					err := videoJobService.Create()
+					if err != nil {
+						logger.Log.Error("Failed to create video compositions", zap.Error(err))
+					}
 				},
 			},
 		},

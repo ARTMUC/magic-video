@@ -6,9 +6,6 @@ import (
 	"gorm.io/gorm"
 )
 
-var ErrDuplicatedKey = errors.New("duplicate key error")
-var ErrRecordNotFound = errors.New("not found")
-
 type Scope = func(*gorm.DB) *gorm.DB
 
 type ReadOptions struct {

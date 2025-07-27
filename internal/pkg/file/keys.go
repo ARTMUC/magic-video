@@ -7,5 +7,5 @@ import (
 )
 
 func ImageKey(videoComposition *composition.VideoComposition, image *composition.Image) string {
-	return path.Join(videoComposition.UUID.String(), image.UUID.String())
+	return path.Join(videoComposition.ID.String(), image.ID.String())
 }

@@ -24,10 +24,6 @@ type OrderLineScopes struct {
 	base.BaseScopes
 }
 
-const (
-	OrderLinePreloadVideoComposition = "VideoComposition"
-)
-
 func (o OrderLineScopes) WithOrderID(orderID uuid.UUID) base.Scope {
 	return func(db *gorm.DB) *gorm.DB {
 		return db.Where("order_id = ?", orderID)
