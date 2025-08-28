@@ -48,6 +48,7 @@ func (c *OrderController) ProcessWebhook(
 		if errors.Is(err, order.ErrPaymentServiceOrderNotFound) || errors.Is(err, order.ErrPaymentServiceOrderTransactionNotFound) {
 			return nil, huma.Error400BadRequest("Invalid sessionId")
 		}
+		return nil, huma.Error500InternalServerError("Internal server error")
 	}
 
 	err = c.videoJobService.Enqueue(orderResult.ID)
